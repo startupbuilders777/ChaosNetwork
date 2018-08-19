@@ -1,7 +1,7 @@
 CHAOS NETWORKS design and implementation paper 
 Author: Harman Singh
 
-#INTRODUCTION 
+# INTRODUCTION 
 The chaos network is designed similar to the human brain. Relationships between neurons, and paths of neural activity formed
 during pattern recognition is the basis for the "chaos" network.
 
@@ -57,7 +57,7 @@ The chaos network should form paths in terms of nodes chosen.
 
 
 
-#Other cool thoughts:
+# Other cool thoughts:
 Since the iterations for each node are stored in the node activiation list, and there are X nodes, and K iterations, then we have data that is usable 
 by an LSTM to make predictions based on timestepped data where the number of timesteps is K, and each timestep has X features. 
 (Features can be organized based on the graph shape).
@@ -65,7 +65,7 @@ by an LSTM to make predictions based on timestepped data where the number of tim
 
 
 
-#ALGORIHTM OUTLINE:
+# ALGORIHTM OUTLINE:
 '''
 FOR EACH TEST EXAMPLE
 GRAB TEST EXAMPLE (X, Y)
@@ -80,13 +80,13 @@ The output from input projection layer is pushed into the node activation list a
     (The output projection layer can be whatever you want it to be)
 '''
 
-#DEEPER QUESTIONS: 
+# DEEPER QUESTIONS: 
 Can weights be shared between nodes? A weight for a node will multiply with inputs from different nodes instead of the same node each time which is done in traditional feedforward networks. 
 
 
 
 
-#IMPORTANT DETAILS ON WEIGHT SHARING FOR CHAOS NETWORK: 
+# IMPORTANT DETAILS ON WEIGHT SHARING FOR CHAOS NETWORK: 
 
 Each node in the candidate field will always be multiplied by the same weight (out of the k weights) when it is chosen for the activation field.
 Node X's candidate field nodes will have a weight-match with a particular weight in node X! 
