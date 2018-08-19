@@ -81,6 +81,67 @@ The output from input projection layer is pushed into the node activation list a
     (The output projection layer can be whatever you want it to be)
 ```
 
+## CHAOS GRAPH STRUCTURE DEFINITIONS AND ANALYSIS
+
+### Introduction 
+The structure is central to performance.
+
+Note about the chaos graph: the graph is directed. An edge between 2 nodes does not imply that each node is in each other's 
+    candidate fields. A node may have another node in its candidate field, but not vice versa. 
+
+Chaos graphs with the constraint that edges between nodes implies the node's are in each other's candidate fields will be called
+Undirected Chaos Graphs (An investigation will be performed on them later). 
+
+
+### Chaos Chunks
+Another important piece of the chaos graph is called a chaos chunk:
+A chaos chunk is a set of nodes working together in a chaos graph which have small candidate field sizes and have each other in their candidate fields. Chaos chunks are like specialized parts in the brain such as a part of the brain that deals with motor function or another part of the brain that deals with olfactory (smell) senses. '
+
+
+Chaos graphs should be constructued with chaos chunks in mind. The abstracted knowledge from these chaos chunks can be used in the central part of the chaos graph to aggregate knowledge and make final predictions.
+
+### Graph Structure Definitions and guides
+The shape of the graph is postulated to have a large impact. Important features of the graph to consider include:
+
+The degree of the node: how many weights does the node have?
+The candidate field size of each node (aka cadidate degree): how many nodes are in the candidate field? 
+The influence of each node: the influence of each node is defined as how much impact a particular node in
+    the chaos graph has that will effect the final output. Some nodes will be more important than other nodes,
+    so training those nodes well will have huge effects on the final performance of the chaos graph.
+    To make a node influential, that node should be in the candidate field for a lot of nodes.
+
+The influence of a chaos chunk. Similar to the definition of influence of a node  
+
+
+## CHAOS GRAPH CONSTRUCTION:
+
+The construction of the graph can be done in 2 ways: Randomly (creating an unstructured chaos graph) by using RNG to 
+randomly choose nodes in the candidate field after specifying how many nodes there will be and the candidate field size for each node,
+or defining a structure (structured chaos graph) by specifying the exact relationships between nodes so that a certain 
+shape is achieved
+
+
+
+Here is an example random construction algorithm:
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```
+
+Here is
+
+
+
 ## DEEPER QUESTIONS: 
 Can weights be shared between nodes? A weight for a node will multiply with inputs from different nodes instead of the same node each time which is done in traditional feedforward networks. 
 
@@ -96,7 +157,8 @@ then a will always multiply with w1 if its chosen, (lets use the term weigth-mat
      b will always multiple with w2 if its chosen, 
      c will always multiple with w3 if its chosen, 
      d will always multiply with w1 if its chosen,  
-     e will always multiply with w2 if its chosen as an example. 
+     e will always multiply with w2 if its chosen as an example.  (MAKE SURE WHEN DOing WEIGHT MATCHINGS TO REDUCE THE NUMBER OF COMMON weight matchings as much as possible to reduce the amount of tie breaking.)
+
     The reason for this constraint is so that these weights can then gain affinity with the nodes that can be chosen for those weights, leading to meaningful learning in the network, 
     without this constraint the weights will not learn ANYTHING because the weights are backpropping on values from too many different nodes inconsistently!! 
     IF WE ARE TO ALLOW WEIGHTS TO BE LEARNING ON DIFFERENT NODES (AKA THE QUESTION OF WEIGHT SHARING), then the weight should only be consistently shared between some nodes, and never any other
@@ -110,14 +172,7 @@ then a will always multiply with w1 if its chosen, (lets use the term weigth-mat
                 The weights will be taken based on highest score to lowest score greedily, by the node's in the activation field, and preferences based on the priority list. 
 
     Solution 3: Use simpler tie breaking rules than solution 2. (however simpler rules than solution 2 will reduce weight node affinity, which is the basis for fast, viable, and accurate learing)
-    
-
-
-
-
-
-
-
+    Solution 4: greedily choose top k nodes, skipping the ones that have a common weight-matching with a node already chosen to be in the activation field. (OK SO AFFINITY IS MAXIMIZED In this solution, but the controller loses their IRON WILL to pass enforcing decisions)
 
 
 ## Advantages of Chaos Network 
@@ -125,4 +180,4 @@ then a will always multiply with w1 if its chosen, (lets use the term weigth-mat
 - Sort of like the human brain.
 
 ## Disadvantages of Chaos Network
-- Very Indeterministic and a lot of configuration compared to other networks
+- Very Indeterministic and a lot of configuration required compared to other networks
