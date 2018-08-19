@@ -1,7 +1,7 @@
-CHAOS NETWORKS design and implementation paper 
-Author: Harman Singh
+# CHAOS NETWORKS design and implementation paper 
+### Author: Harman Singh
 
-# INTRODUCTION 
+## INTRODUCTION 
 The chaos network is designed similar to the human brain. Relationships between neurons, and paths of neural activity formed
 during pattern recognition is the basis for the "chaos" network.
 
@@ -20,7 +20,7 @@ outputs from 3 other nodes in the chaos graph (and these outputs were calculated
 
 
 
-# Design Details of ChaosNetwork:
+## Design Details of ChaosNetwork:
 
 The chaos network is iteratiive, so it can have an iteration count of 10, which results in 10 activations created by each node in the graph, for each test sample.
 (A possible thing that can be investigated later is backpropping 10 times, instead of once for each test example as a result)
@@ -57,7 +57,7 @@ The chaos network should form paths in terms of nodes chosen.
 
 
 
-# Other cool thoughts:
+## Other cool thoughts:
 Since the iterations for each node are stored in the node activiation list, and there are X nodes, and K iterations, then we have data that is usable 
 by an LSTM to make predictions based on timestepped data where the number of timesteps is K, and each timestep has X features. 
 (Features can be organized based on the graph shape).
@@ -65,8 +65,8 @@ by an LSTM to make predictions based on timestepped data where the number of tim
 
 
 
-# ALGORIHTM OUTLINE:
-'''
+## ALGORIHTM OUTLINE:
+```
 FOR EACH TEST EXAMPLE
 GRAB TEST EXAMPLE (X, Y)
 Input projection layer(can be convolutional nets, FC layers, ) takes in X creates activation 0, for each node in chaos graph
@@ -74,19 +74,20 @@ The output from input projection layer is pushed into the node activation list a
 
     FOR i from 1 to X (So the iteration hyperparameter for the chaos graph is X)
         nodes are scored by controller graph (score is calculated based on activations at time i-1, which in this case is the output from the input projection layer),
-        each node finds top k nodes and then computes its dot product and tanh , and stores that value in its node activation list.
+        each node finds top k nodes and then computes its dot product and tanh , and stores that value in its node activation list. (use tie breaking rules for weight sharing in this step)
+
 
     Values in Node activation list are then fed into a convolutional net/feed forward net to compute output (output can be probabilities for a classiication problem)
     (The output projection layer can be whatever you want it to be)
-'''
+```
 
-# DEEPER QUESTIONS: 
+## DEEPER QUESTIONS: 
 Can weights be shared between nodes? A weight for a node will multiply with inputs from different nodes instead of the same node each time which is done in traditional feedforward networks. 
 
 
 
 
-# IMPORTANT DETAILS ON WEIGHT SHARING FOR CHAOS NETWORK: 
+## IMPORTANT DETAILS ON WEIGHT SHARING FOR CHAOS NETWORK: 
 
 Each node in the candidate field will always be multiplied by the same weight (out of the k weights) when it is chosen for the activation field.
 Node X's candidate field nodes will have a weight-match with a particular weight in node X! 
@@ -119,9 +120,9 @@ then a will always multiply with w1 if its chosen, (lets use the term weigth-mat
 
 
 
-# Advantages of Chaos Network 
+## Advantages of Chaos Network 
 - Can memorize lots of details due to the high number of permutations and states for "memories" to be in
 - Sort of like the human brain.
 
-# Disadvantages of Chaos Network
+## Disadvantages of Chaos Network
 - Very Indeterministic and a lot of configuration compared to other networks
