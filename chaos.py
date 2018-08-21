@@ -18,7 +18,7 @@ class Node():
                                        dtype=dtype) 
 
     def add_activation(self, activation):
-        self.activation_list.add(activation)
+        self.activation_list.append(activation)
     
     def get_top_activation(self):
         if len(self.activation_list) == 0:
@@ -105,6 +105,12 @@ class ChaosNetwork():
         self.output_size = output_size
         self.chaos_number = chaos_number
 
+
+        # defined by chaos graph 
+        self._train = None
+        self._controller = None
+        self._pass_through = None
+
         if load_graph_structure: 
             self.load_graph(graph_structure)
         else: 
@@ -175,7 +181,8 @@ class ChaosNetwork():
             activation_zero = fc_layer(inputs, 
                                        self.number_of_nodes, 
                                        activation=tf.tanh, 
-                                       bias=False)
+                                       bias=False,
+                                       scope="input")
 
             # give activation 0 to each layer
             list_of_activation_zero_tensors = tf.unstack(activation_zero, 
@@ -198,7 +205,7 @@ class ChaosNetwork():
                 node_scores = self.evaluate_nodes(current_activations)
             
             # final output is a projection layer, so set bias to false
-            _pass_through = fc_layer(current_activations, self.output_size, activation=tf.tanh, bias=False)
+            _pass_through = fc_layer(current_activations, self.output_size, activation=tf.tanh, bias=False, scope="output")
         
         return _pass_through
 
@@ -243,7 +250,7 @@ class ChaosNetwork():
     
     def train(self, batch_x, batch_y, learning_rate = 0.01, ):
         if self._train is None:
-            logits = self._pass_through
+            logits = self.pass_through(batch_x)
 
             loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, 
                                                                              labels=batch_y))
@@ -253,25 +260,3 @@ class ChaosNetwork():
         
         return self._train
         
-
-
-
-        
-
-node = Node(3, 4, "A");
-
-chaos_net = ChaosNetwork(number_of_nodes=50, 
-                           input_size=70, 
-                           output_size=12, 
-                           chaos_number=12)
-
-
-print(node.get_candidate_field());
-
-
-sess = tf.Session()
-
-batch_x = tf.placeholder(tf.float64, (None, None, self.dataProcessor.inputTensorSize))
-batch_y = tf.placeholder(tf.float64, (None, None, self.dataProcessor.outputTensorSize))
-
-train, train_loss = chaos_net.train(batch_x, batch_y)
