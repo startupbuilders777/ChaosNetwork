@@ -43,16 +43,22 @@ class ChaosNetwork():
     different instances on the same chaos graph
 
     '''
-    def __init__(self, number_of_nodes, degree_map, input_size, load_graph_structure=False):
+    def __init__(self, 
+                 number_of_nodes, 
+                 degree_map, 
+                 input_size,
+                 output_size, 
+                 load_graph_structure=False):
         self.degree_map = degree_map 
         self.number_of_nodes = number_of_nodes
         self.nodes = []    
         self.input_size = input_size
+        self.output_size = output_size
 
 
     def fc_layer(input_, output_size, activation=None, bias=True, scope=None):
             '''
-        fully convlolution layer
+        fully connnected layer
         Args :
             input_  - 2D tensor
                 general shape : [batch, input_size]
@@ -110,8 +116,43 @@ class ChaosNetwork():
 
             self.nodes[i].set_candidate_field(nodes_to_be_in_candidate_field)
 
+    def pass_through(self, inputs):
+        if self._pass_through is None:  
+            #just a projection layer, therefore, no bias
+            activation_zero = self.fc_layer(inputs, 
+                                            self.number_of_nodes, 
+                                            activation=tf.tanh, 
+                                            bias=False)
+            # give activation 0 to each layer
+            list_of_activation_zero_tensors = tf.unstack(activation_zero, 
+                       num=self.number_of_nodes, 
+                       axis=0)
+            
+            for i in list_of_activation_zero_tensors:
+                print i 
+            
+            
 
 
+    def infer(self, inputs):
+        if self._infer is None:
+            output = self.pass_through(inputs)
+            output = tf.nn.softmax(output)
+            self._infer = output
+        
+        return self._infer
+    
+    def train(self, learning_rate = 0.01, batch_x, batch_y):
+        if self._train is None:
+            logits = self._pass_through
+
+            loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logis(logits=logits, labels=batch_y))
+            optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+            train_op = optimizer.minimize(loss_op)
+            self._train = train_op, loss_op
+        
+        return self._train
+        
 
 
 
