@@ -1,7 +1,6 @@
 import tensorflow as tf
 import numpy as np
 from aux import fc_layer
-from pylint.test.functional.inconsistent_returns import explicit_implicit_returns3
 
 class Node():
     def __init__(self, degree, candidate_degree, name, dtype=tf.float64):
@@ -19,7 +18,7 @@ class Node():
                                        dtype=dtype) 
 
     def add_activation(self, activation):
-        self.activation_list.push(activation)
+        self.activation_list.add(activation)
     
     def get_top_activation(self):
         if len(self.activation_list) == 0:
@@ -27,18 +26,18 @@ class Node():
         else:
             return self.activation_list[-1]
 
-    @property
+   
     def get_degree(self):
         return self._degree
     
-    @property
+
     def get_candidate_degree(self):
         return self._candidate_degree
 
     def set_candidate_field(self, candidate_field_nodes):
         self.candidate_field_nodes = np.array(candidate_field_nodes)
     
-    @property
+  
     def get_candidate_field(self):
         return self.candidate_field_nodes
     
@@ -94,7 +93,7 @@ class ChaosNetwork():
                  input_size,
                  output_size, 
                  chaos_number, 
-                 degree_map, 
+                 degree_map= None, 
                  load_graph_structure = False,
                  graph_structure = None):
 
@@ -120,13 +119,13 @@ class ChaosNetwork():
             self.create_random_chaos_graph()
         
     def create_random_chaos_graph(self):
-        number_of_nodes = 50;
+        number_of_nodes = self.number_of_nodes;
         degree = 3;
         candidate_field_size = 6;
 
         # index position in array is the node name.
         for i in range(number_of_nodes): 
-            self.nodes.push(Node(name=i, 
+            self.nodes.append(Node(name=("node" + str(i)), 
                                  degree=degree, 
                                  candidate_degree=candidate_field_size))
 
@@ -259,6 +258,20 @@ class ChaosNetwork():
 
         
 
-node = Node(3, "A");
+node = Node(3, 4, "A");
 
-print(node.getCandidateField());
+chaos_net = ChaosNetwork(number_of_nodes=50, 
+                           input_size=70, 
+                           output_size=12, 
+                           chaos_number=12)
+
+
+print(node.get_candidate_field());
+
+
+sess = tf.Session()
+
+batch_x = tf.placeholder(tf.float64, (None, None, self.dataProcessor.inputTensorSize))
+batch_y = tf.placeholder(tf.float64, (None, None, self.dataProcessor.outputTensorSize))
+
+train, train_loss = chaos_net.train(batch_x, batch_y)
