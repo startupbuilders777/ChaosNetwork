@@ -55,11 +55,14 @@ class Node():
 FOR EACH TEST EXAMPLE
 GRAB TEST EXAMPLE (X, Y)
 Input projection layer(can be convolutional nets, FC layers, ) takes in X creates activation 0, for each node in chaos graph
-The output from input projection layer is pushed into the node activation list as the first element for each node (so activation at index 0, or activation 0)
+The output from input projection layer is pushed into the node activation list as the first element 
+for each node (so activation at index 0, or activation 0)
 
     FOR i from 1 to X (So the iteration hyperparameter for the chaos graph is X)
-        nodes are scored by controller graph (score is calculated based on activations at time i-1, which in this case is the output from the input projection layer),
-        each node finds top k nodes and then computes its dot product and tanh , and stores that value in its node activation list. (use tie breaking rules for weight sharing in this step)
+        nodes are scored by controller graph (score is calculated based on activations at time i-1, 
+                                              which in this case is the output from the input projection layer),
+        each node finds top k nodes and then computes its dot product and tanh , and stores that value in its node 
+                                                activation list. (use tie breaking rules for weight sharing in this step)
 
 
     Values in Node activation list are then fed into a convolutional net/feed forward net to compute output (output can be probabilities for a classiication problem)
@@ -186,13 +189,19 @@ class ChaosNetwork():
             
             # could probablu do a tf map here and above if, since for loops dont work on computational graph construction
             for node_id, i in enumerate(list_of_activation_zero_tensors):
-                self.nodes[node_id].activation_list.push(i)
+                self.nodes[node_id].add_activation(i)
+
                 node_scores = self.evaluate_nodes(tf.stack(list_of_activation_zero_tensors))
 
             for i in range(self.chaos_number):
                 # this probably has to be tf.while
-                current_activations = self.chaos_iteration(node_scores) #current activations should be a tensor array of activations
-                
+                current_activations = self.chaos_iteration(node_scores) # current activations should be a tensor array of activations
+                node_scores = self.evaluate_nodes(current_activations)
+            
+            # final output is a projection layer, so set bias to false
+            _pass_through = fc_layer(current_activations, self.output_size, activation=tf.tanh, bias=False)
+        
+        return _pass_through
 
     def get_previous_node_activations(self, nodes):
         # gets node activations
