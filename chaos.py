@@ -34,8 +34,45 @@ class Node():
     def get_candidate_degree(self):
         return self._candidate_degree
 
+    # there are 5 nodes in candidate field, and 3 weights
+    # to match them to weights do the following: 
+    # priority list building:
+    # priority list algorithm:
+    # => a will match with weight 1, otherwise go up by 1, it will match with weight2, 
+    #              otherwise go up by one, it will match with weight weight3, go up by one, 
+    #               if it reaches the end, start counting from weight0 again
+    # => and weights will greedily be taken by highest score to lowest score.
+    # => in other words, each node should store, the weight they assign to, check if the index 
+    #                location in the array is taken for that weight, and if it is, go to the next empty spot in 
+    #                this array which has degree k, where k is the degree of the node
+    # { a: [1,2,3]   
+    #   b: [2,3,1]
+    #   c: [3,2,1]
+    #   d: [1,2,3]
+    #  }
+    # in the node, the candidate node and weight should be stored as a tuple!!!!
+
     def set_candidate_field(self, candidate_field_nodes):
-        self.candidate_field_nodes = np.array(candidate_field_nodes)
+        '''
+        >>> a = [(3,2), (4,6)]
+        >>> b = np.array(a)
+        >>> a
+        [(3, 2), (4, 6)]
+        >>> b
+        array([[3, 2],
+               [4, 6]])
+        '''
+        weight_counter = 0
+        arr = []
+
+        for i in candidate_field_nodes: 
+            arr.append((i, weight_counter))
+            weight_counter += 1
+            
+            if weight_counter == self.degree:
+                weight_counter = 0
+
+        self.candidate_field_nodes = np.array(arr)
     
   
     def get_candidate_field(self):
@@ -161,7 +198,8 @@ class ChaosNetwork():
         return fc_layer(activation_input, 
                         self.number_of_nodes, 
                         activation=tf.tanh, 
-                        bias=True, scope=scope)
+                        bias=True, 
+                        scope=scope)
 
     # Controller Scores each node, takes its previous activation 
     def evaluate_nodes(self, activation_input): 
@@ -225,13 +263,33 @@ class ChaosNetwork():
             candidate_field_for_node = node.get_candidate_field()
             node_degree = node.get_degree()
 
-            top_values, top_indices = tf.nn.top_k(tf.gather(node_scores, candidate_field_for_node), k=node_degree) # get the scores revelent to the particular node
+            top_values, top_indices = tf.nn.top_k(tf.gather(node_scores, candidate_field_for_node[:, 0]), k=node_degree) # get the scores revelent to the particular node
             # top indices reflects index locations into the candidate_field_for_node array
             # which will retrieve the node id's for nodes that are in the top sore.
             activation_field_nodes = candidate_field_for_node[top_indices] # indexing into an np array
-            activation_field_input = self.get_previous_node_activations(activation_field_nodes)
 
+            # the field input has to be sorted based on which activation inputs will multiply with which weights...
+
+            # sort out the activation_field_nodes and insert them into the array so that ties are broken and the weight matchings are correct
+
+            sorted_nodes = np.array([None] * node_degree)
+
+            for i in range(len(activation_field_nodes)):
+                while True:
+                    weight_match = activation_field_nodes[1]
+                    if(sorted_nodes[weight_match] is None):
+                        sorted_nodes[weight_match] = activation_field_nodes[0]
+                        break
+                    else: 
+                        weight_match += 1
+                        if weight_match == node_degree:
+                            weight_match = 0    
+                
+
+
+            activation_field_input = self.get_previous_node_activations(sorted_nodes)
             node_evaluation = tf.reduce_sum(tf.matmul(activation_field_input, node.weights))
+
             node_activation = tf.tanh(node_evaluation)
             node.add_activation(node_activation)
 
