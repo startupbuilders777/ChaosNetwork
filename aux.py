@@ -26,3 +26,20 @@ def fc_layer(input_, output_size, activation=None, bias=True, scope=None):
             output_ += b
         return output_ if activation is None else activation(output_)
 
+
+# Tensorflow stuff
+
+
+sess = tf.InteractiveSession()
+
+degree_size = 10
+TensorArr = tf.TensorArray(dtype=tf.float32, size=10, dynamic_size=False)
+
+
+sorted_nodes = TensorArr.unstack( np.array([-1] * degree_size, dtype=np.float32) )
+x_elem0 = sorted_nodes.read(0) # first element
+
+print_elem = tf.Print(x_elem0, [x_elem0], message="yee tensor array value is: ")
+
+print_elem.eval()
+

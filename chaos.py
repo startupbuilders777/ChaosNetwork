@@ -69,11 +69,11 @@ class Node():
             arr.append((i, weight_counter))
             weight_counter += 1
             
-            if weight_counter == self.degree:
+            if weight_counter == self._degree:
                 weight_counter = 0
 
         self.candidate_field_nodes = np.array(arr)
-    
+        print("CANDIDATE FIELD IS: ", self.candidate_field_nodes)
   
     def get_candidate_field(self):
         return self.candidate_field_nodes
@@ -240,6 +240,7 @@ class ChaosNetwork():
             for i in range(self.chaos_number):
                 # this probably has to be tf.while
                 current_activations = self.chaos_iteration(node_scores) # current activations should be a tensor array of activations
+                
                 node_scores = self.evaluate_nodes(current_activations)
             
             # final output is a projection layer, so set bias to false
@@ -266,15 +267,15 @@ class ChaosNetwork():
             top_values, top_indices = tf.nn.top_k(tf.gather(node_scores, candidate_field_for_node[:, 0]), k=node_degree) # get the scores revelent to the particular node
             # top indices reflects index locations into the candidate_field_for_node array
             # which will retrieve the node id's for nodes that are in the top sore.
-            activation_field_nodes = candidate_field_for_node[top_indices] # indexing into an np array
+            activation_field_nodes = tf.gather(tf.convert_to_tensor(candidate_field_for_node), top_indices) # indexing into an np array
 
             # the field input has to be sorted based on which activation inputs will multiply with which weights...
 
             # sort out the activation_field_nodes and insert them into the array so that ties are broken and the weight matchings are correct
 
-            sorted_nodes = np.array([None] * node_degree)
+            sorted_nodes = tf.TensorArray([None] * node_degree)
 
-            for i in range(len(activation_field_nodes)):
+            for i in range(len(tf.unstack(activation_field_nodes) )):
                 while True:
                     weight_match = activation_field_nodes[1]
                     if(sorted_nodes[weight_match] is None):
