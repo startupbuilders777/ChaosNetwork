@@ -239,7 +239,7 @@ class ChaosNetwork():
 
             for i in range(self.chaos_number):
                 # this probably has to be tf.while
-                current_activations = self.chaos_iteration(node_scores) # current activations should be a tensor array of activations
+                current_activations = self.chaos_iteration(node_scores, prev_activations) # current activations should be a tensor array of activations
                 
                 node_scores = self.evaluate_nodes(current_activations)
             
@@ -255,7 +255,7 @@ class ChaosNetwork():
     
 
 
-    def chaos_iteration(self, node_scores):
+    def chaos_iteration(self, node_scores, prev_activations):
         
         chaos_activations = []
         for i in range(self.number_of_nodes):
