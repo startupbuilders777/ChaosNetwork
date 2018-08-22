@@ -83,14 +83,18 @@ def tie_breaking_algo_test():
     # OK SO I GOT THIS ISSUE:  TensorArray TensorArray_1_1: Could not write to TensorArray index 2 because it has already been read.
     # this is because we cant read from an array and then write to it in the outer while loop, so just split to two output arrays.
 
-    weights_taken = tf.TensorArray(dtype=tf.float32, size=node_degree, dynamic_size=False)
+    weights_taken = tf.TensorArray(dtype=tf.float32, 
+                                   size=node_degree, 
+                                   dynamic_size=False, 
+                                   clear_after_read=False) # HAVE TO SET THIS SO YOU CAN READ INDEXES MULTIPLE TIMES.
+
     weights_taken_arr = weights_taken.unstack(np.array([-1] * node_degree, dtype=np.float32)) 
 
 
-    def find_weight_matched_nodes_cond(index, output_arr):
+    def find_weight_matched_nodes_cond(index, output_arrm, weights_taken_arr):
         return index < node_degree
     
-    def find_weight_matched_nodes_body(index, output_arr):
+    def find_weight_matched_nodes_body(index, output_arr, weights_taken_arr):
         input_node_matching = input_selected_field_nodes_arr.read(index)
         node_id = tf.gather(input_node_matching, 0)
         
@@ -100,41 +104,54 @@ def tie_breaking_algo_test():
 
 
 
-        def find_weight_match_cond(weight_match):
-            # its not taken if its -1, otherwise its taken, set 1 if its taken (cant do both these tasks in same array cause tf complains) 
-            taken = weights_taken_arr.read(weight_match)
+        def find_weight_match_cond(weight_match, taken_arr, keep_going):
+            return keep_going
+             
+
+        def find_weight_match_body(weight_match, taken_arr, keep_going):
+            #keep_going is our variable, we just return it in the cond
+            taken = taken_arr.read(weight_match)
+            # taken_print = tf.Print(taken, [taken], "yee: ")
+            # weight_match_print = tf.Print(weight_match, [weight_match], "weight match val: ")
             
             def notTaken(): 
-                weights_taken_arr.write(weight_match, 1) # Take it. 
-                return True
+                modified_taken_arr = taken_arr.write(weight_match, tf.cast(1, dtype=tf.float32)) # Take it. (PROBLEM WITH THIS IS YOU ARENT KEEPING THE NODE!!!)??????
+                #val_print = tf.Print(val, [val], message="fook")
+                #return val_print
+                return (weight_match, modified_taken_arr, False)
 
             def isTaken():
-                return False
-                        
-            return tf.cond(tf.equal(taken, -1), notTaken, isTaken)     
+                incremented_weight_match = tf.cond(tf.equal(weight_match, node_degree-1), lambda: 0, lambda: (weight_match + 1))
+                #val_print = tf.Print(val, [val], message="poop")
+                return (incremented_weight_match, taken_arr, True)
+            
+            # its not taken if its -1, otherwise its taken, set 1 if its taken (cant do both these tasks in same array cause tf complains)                   
+            # kill while loop when its not taken    
 
-        def find_weight_match_body(weight_match):
-            return tf.cond(tf.equal(weight_match, node_degree), lambda: 0, lambda: (weight_match + 1))
+           
+            return tf.cond(tf.equal(taken, -1), notTaken, isTaken)
 
-        empty_index_to_write_to = tf.while_loop(find_weight_match_cond, 
-                                                find_weight_match_body, 
-                                                parallel_iterations=1,
-                                                loop_vars=[weight_match])
+
+
+        empty_index_to_write_to, modified_weights_taken_arr, _ = tf.while_loop(find_weight_match_cond, 
+                                                                            find_weight_match_body, 
+                                                                            parallel_iterations=1,
+                                                                            loop_vars=(weight_match, weights_taken_arr, True))
         
         output_arr_changed = output_arr.write(empty_index_to_write_to, node_id)
                             
-        return (index + 1, output_arr_changed)
+        return (index + 1, output_arr_changed, modified_weights_taken_arr)
 
-    index_final, weight_matched_nodes_arr_final = tf.while_loop(find_weight_matched_nodes_cond, 
+    index_final, final_weight_matched_nodes_arr, final_weights_taken_arr = tf.while_loop(find_weight_matched_nodes_cond, 
                                                                 find_weight_matched_nodes_body, 
-                                                                loop_vars=(index, weight_matched_nodes_arr), 
+                                                                loop_vars=(index, weight_matched_nodes_arr, weights_taken_arr), 
                                                                                 shape_invariants=None,
                                                                                 parallel_iterations=1, 
                                                                                 back_prop=True,  #MAYBE NO BACKPROP TRAINING NEEDED HERE BECAUSE WE ARE JUST REORDERING RESULTS. 
                                                                                                 #WHICH WILL THEN MULTIPLY WITH WEIGHTS. YES DISABLE BACK PROP HERE!
                                                                                 swap_memory=False)
     
-    result = weight_matched_nodes_arr_final.stack() 
+    result = final_weight_matched_nodes_arr.stack() 
     print_result = tf.Print(result, [result], "Result is: ")
     print_result.eval()
    
