@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from aux import fc_layer
+from util import fc_layer
 
 class Node():
     def __init__(self, degree, candidate_degree, name, dtype=tf.float64):
