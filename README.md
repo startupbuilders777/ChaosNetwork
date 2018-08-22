@@ -29,9 +29,9 @@ a fully connected layer projects input into output, output is equal to number of
 the chaos graph is a bunch of nodes conneceted to other nodes (connected as in, it takes its activations as inputs.)
 iterations are run on the chaos network
 
-Each node has a candidate field and an activation field.
+Each node has a candidate field and an selected field.
 A candidate field is all the nodes that the node can talk to. (sort of like in the brain, a neuron has neurons surrounding it that it can spark)
-the activation field is the specific nodes chosen from the candidate field that will be spoken to in the current iteration.
+the selected field is the specific nodes chosen from the candidate field that will be spoken to in the current iteration.
 ("spoken to" means "take activations from to be used in its dot product calculation")
 
 HARD CONSTRAINTS for this network
@@ -150,7 +150,7 @@ Can weights be shared between nodes? A weight for a node will multiply with inpu
 
 ## IMPORTANT DETAILS ON WEIGHT SHARING FOR CHAOS NETWORK: 
 
-Each node in the candidate field will always be multiplied by the same weight (out of the k weights) when it is chosen for the activation field.
+Each node in the candidate field will always be multiplied by the same weight (out of the k weights) when it is chosen for the selected field.
 Node X's candidate field nodes will have a weight-match with a particular weight in node X! 
 This means if (a, b, c, d, e) are nodes in the candidate field for node F, and node F has weights (w1, w2, w3) (Degree 3),
 then a will always multiply with w1 if its chosen, (lets use the term weigth-match, so a's weight-match is w1 )
@@ -164,15 +164,15 @@ then a will always multiply with w1 if its chosen, (lets use the term weigth-mat
     IF WE ARE TO ALLOW WEIGHTS TO BE LEARNING ON DIFFERENT NODES (AKA THE QUESTION OF WEIGHT SHARING), then the weight should only be consistently shared between some nodes, and never any other
     nodes. (In this example, A AND D WILL ALWAYS SHARE WEIGHT 1). 
 
-    Problem: WHAT IF the activation field is (a, d, e), then which weights are assigned to which nodes, since a and d are both assigned to weight 1?
+    Problem: WHAT IF the selected field is (a, d, e), then which weights are assigned to which nodes, since a and d are both assigned to weight 1?
     Here are the solutions we can investigate: 
-    Solution 1: DO NOT ALLOW THE ACTIVATION FIELD TO CONTAIN Nodes with common weight-matches. 
+    Solution 1: DO NOT ALLOW THE selected field TO CONTAIN Nodes with common weight-matches. 
     Solution 2: Allow each node to have a priority list of weights matches, so if a weight is taken by another node, then go to the second weight match in the priority list and check if thats
                 taken and if it isnt, then take that weight. Therefore  every node in the candidate field can possibly be assigned to  any weight.
-                The weights will be taken based on highest score to lowest score greedily, by the node's in the activation field, and preferences based on the priority list. 
+                The weights will be taken based on highest score to lowest score greedily, by the node's in the selected field, and preferences based on the priority list. 
 
     Solution 3: Use simpler tie breaking rules than solution 2. (however simpler rules than solution 2 will reduce weight node affinity, which is the basis for fast, viable, and accurate learing)
-    Solution 4: greedily choose top k nodes, skipping the ones that have a common weight-matching with a node already chosen to be in the activation field. (OK SO AFFINITY IS MAXIMIZED In this solution, but the controller loses their IRON WILL to pass enforcing decisions)
+    Solution 4: greedily choose top k nodes, skipping the ones that have a common weight-matching with a node already chosen to be in the selected field. (OK SO AFFINITY IS MAXIMIZED In this solution, but the controller loses their IRON WILL to pass enforcing decisions)
 
 
 ## Advantages of Chaos Network 

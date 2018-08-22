@@ -61,7 +61,7 @@ def example2():
     weight_matched_nodes_arr = weight_matched_nodes_ta.unstack(np.array([-1] * node_degree, dtype=np.float32)) 
 
     def find_weight_matched_nodes_cond(index, output_arr):
-        return tf.less(index, node_degree)
+        return index < node_degree
     
     def find_weight_matched_nodes_body(index, output_arr):
         input_node_matching = input_activation_field_nodes_arr.read(index)
@@ -79,9 +79,9 @@ def example2():
                                                 find_weight_match_body, 
                                                 loop_vars=[weight_match])
         
-        #output_arr_changed = output_arr.write(empty_index_to_write_to, node_activation)
+        output_arr_changed = output_arr.write(empty_index_to_write_to, node_activation)
           
-        return (index + 1, output_arr)
+        return (index + 1, output_arr_changed)
 
     index_final, weight_matched_nodes_arr_final = tf.while_loop(find_weight_matched_nodes_cond, 
                                                                 find_weight_matched_nodes_body, 

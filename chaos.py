@@ -267,19 +267,19 @@ class ChaosNetwork():
             top_values, top_indices = tf.nn.top_k(tf.gather(node_scores, candidate_field_for_node[:, 0]), k=node_degree) # get the scores revelent to the particular node
             # top indices reflects index locations into the candidate_field_for_node array
             # which will retrieve the node id's for nodes that are in the top sore.
-            activation_field_nodes = tf.gather(tf.convert_to_tensor(candidate_field_for_node), top_indices) # indexing into an np array
+            selected_field_nodes = tf.gather(tf.convert_to_tensor(candidate_field_for_node), top_indices) # indexing into an np array
 
             # the field input has to be sorted based on which activation inputs will multiply with which weights...
 
-            # sort out the activation_field_nodes and insert them into the array so that ties are broken and the weight matchings are correct
+            # sort out the selected_field_nodes and insert them into the array so that ties are broken and the weight matchings are correct
 
             sorted_nodes = tf.TensorArray([None] * node_degree)
 
-            for i in range(len(tf.unstack(activation_field_nodes) )):
+            for i in range(len(tf.unstack(selected_field_nodes) )):
                 while True:
-                    weight_match = activation_field_nodes[1]
+                    weight_match = selected_field_nodes[1]
                     if(sorted_nodes[weight_match] is None):
-                        sorted_nodes[weight_match] = activation_field_nodes[0]
+                        sorted_nodes[weight_match] = selected_field_nodes[0]
                         break
                     else: 
                         weight_match += 1
@@ -288,8 +288,8 @@ class ChaosNetwork():
                 
 
 
-            activation_field_input = self.get_previous_node_activations(sorted_nodes)
-            node_evaluation = tf.reduce_sum(tf.matmul(activation_field_input, node.weights))
+            selected_field_input = self.get_previous_node_activations(sorted_nodes)
+            node_evaluation = tf.reduce_sum(tf.matmul(selected_field_input, node.weights))
 
             node_activation = tf.tanh(node_evaluation)
             node.add_activation(node_activation)
