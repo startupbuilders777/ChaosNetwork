@@ -262,7 +262,6 @@ def tie_breaking_algo_test():
         def find_weight_match_cond(weight_match, keep_going): # THIS WHILE LOOP IS ACTUALLY an infinite while loop with a break in the body
             return keep_going
              
-
         def find_weight_match_body(weight_match, keep_going):
             taken = weights_taken_table.lookup(weight_match)
             taken_print = tf.Print(taken, [taken], "taken: ")
@@ -272,11 +271,13 @@ def tie_breaking_algo_test():
                 #val_print = tf.Print(val, [val], message="fook")
                 #return val_print
                 with tf.control_dependencies([insert_op]):
-                     # Now, we are under the dependency scope:
-                     # All the operations happening here will only happens after 
-                     # the "assign_op" has been computed first
-                     # i think you can put if statements here maybe.
-                    identity_weight_match = tf.identity(weight_match)
+                    # Now, we are under the dependency scope:
+                    # All the operations happening here will only happens after 
+                    # the "assign_op" has been computed first
+                    # i think you can put if statements here maybe.
+
+                    # THIS IS A NO-OP TENSOR. because we need some tensor to execute to cause the control dependency to work
+                    identity_weight_match = tf.identity(weight_match) 
 
                 return (identity_weight_match, False)
 
