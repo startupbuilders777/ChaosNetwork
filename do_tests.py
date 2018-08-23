@@ -120,9 +120,14 @@ def baseline():
             "\nThen open http://0.0.0.0:6006/ into your web browser")
 
 def chaosGraphBaseline():
+    
+    # TODO: DECOUPLE INPUT AND OUTPUT PROJECTION LAYER INSIDE CHAOS NETWORK FROM 
+    # THE CHAOS NETWORK ITSELF.
+    # PPL USING API SHOULD BE BUILDING WHATEVER NETS THEY WANT AND ADD
+    # CHAOS NET AS A LAYER IN THEIR ARCHITECTURE. 
     chaos_net = ChaosNetwork(number_of_nodes=50, 
-                           input_size=70, 
-                           output_size=12, 
+                           input_size=n_input, 
+                           output_size=n_classes, 
                            chaos_number=12)
     
     train, train_loss = chaos_net.train(x, y)
@@ -141,6 +146,7 @@ def chaosGraphBaseline():
             # Loop over all batches
             for i in range(total_batch):
                 batch_xs, batch_ys = mnist.train.next_batch(batch_size)
+                print("batch_xs", batch_xs)
                 # Run optimization op (backprop), cost op (to get loss value)
                 # and summary nodes
                 sess.run(train,

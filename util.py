@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 
 
-def fc_layer(input_, output_size, activation=None, bias=True, scope=None):
+def fc_layer(input_, input_size, output_size, activation=None, bias=True, scope=None):
     '''
         fully connnected layer
         Args :
@@ -16,7 +16,7 @@ def fc_layer(input_, output_size, activation=None, bias=True, scope=None):
                 defaults to be None then scope becomes "fc"
     '''
     with tf.variable_scope(scope or "fc"):
-        w = tf.get_variable(name="weight", shape=[input_.get_shape().as_list()[1], output_size],
+        w = tf.get_variable(name="weight", shape=[input_size, output_size],
                             initializer=tf.contrib.layers.xavier_initializer())
         output_ = tf.matmul(input_, w)
         if bias:

@@ -86,7 +86,7 @@ class Node():
                 weight_counter = 0
 
         self.candidate_field_nodes = np.array(arr)
-        print("CANDIDATE FIELD IS: ", self.candidate_field_nodes)
+        # print("CANDIDATE FIELD IS: ", self.candidate_field_nodes)
   
     def get_candidate_field(self):
         return self.candidate_field_nodes
@@ -210,14 +210,15 @@ class ChaosNetwork():
             self.nodes[i].set_candidate_field(nodes_to_be_in_candidate_field)
 
     def build_controller(self, activation_input, scope=None):
-        return fc_layer(activation_input, 
-                        self.number_of_nodes, 
+        return fc_layer(input_= activation_input,
+                        input_size = self.number_of_nodes, 
+                        output_size=self.number_of_nodes, 
                         activation=tf.tanh, 
                         bias=True, 
                         scope=scope)
 
     # Controller Scores each node, takes its previous activation 
-    def evaluate_nodes(self, activation_input): 
+    def score_nodes(self, activation_input): 
         
         if self._controller is None:
             # can be anytime of graph 
@@ -225,14 +226,18 @@ class ChaosNetwork():
 
         return self._controller
         
-
-
     def pass_through(self, inputs):
         if self._pass_through is None:  
             #just a projection layer, therefore, no bias
             
-            activation_zero = fc_layer(inputs, 
-                                       self.number_of_nodes, 
+            total_chaos_from_pass = tf.TensorArray(size=self.chaos_number, dtype=self.dtype)
+            chaos_idx = 0
+            
+            print("inputs", inputs)
+
+            activation_zero = fc_layer(input_=inputs,
+                                       input_size = self.input_size, 
+                                       output_size = self.number_of_nodes, 
                                        activation=tf.tanh, 
                                        bias=False,
                                        scope="input")
@@ -254,21 +259,42 @@ class ChaosNetwork():
             # indexing in will give you the activations for a certain node !!!!!!
             for node_id, i in enumerate(list_of_activation_zero_tensors):
                 self.nodes[node_id].add_activation(i)
-
-            node_scores = self.evaluate_nodes(tf.stack(list_of_activation_zero_tensors))
+            list_of_activation_zero_tensors = tf.stack(list_of_activation_zero_tensors)
+            node_scores = self.score_nodes(list_of_activation_zero_tensors)
             
             prev_activations = list_of_activation_zero_tensors
+            print(prev_activations)
+            print(prev_activations.get_shape())
 
-            for i in range(self.chaos_number):
+            def pass_iteration(idx, cumulative_chaos, scores_for_nodes, prev_activations):
                 # this probably has to be tf.while
-                current_activations = self.chaos_iteration(node_scores, prev_activations) # current activations should be a tensor array of activations
+                current_activations = self.chaos_iteration(scores_for_nodes, prev_activations) # current activations should be a tensor array of activations
                 
-                node_scores = self.evaluate_nodes(current_activations)
-                prev_activations = current_activations
+                next_score_for_nodes = self.score_nodes(current_activations)
 
-            print("current activations: ", current_activations)
+                cumulative_chaos = cumulative_chaos.write(idx, current_activations)
+                
+                return (idx+1, cumulative_chaos, next_score_for_nodes, current_activations)
+            
+
+            _, total_chaos_from_pass_final, final_node_scores, activation_on_final_index = tf.while_loop(
+                lambda idx, a, b, c : tf.less(idx, self.chaos_number), 
+                pass_iteration, 
+                (chaos_idx, total_chaos_from_pass, node_scores, prev_activations), 
+                parallel_iterations = 1, 
+                back_prop=True)
+
+            stacked_total_chaos = total_chaos_from_pass_final.stack()
+            stacked_total_chaos_print = tf.Print(stacked_total_chaos, [stacked_total_chaos], "stacked_total_chaos: ")
+
+            print("current activations: ", activation_on_final_index)
             # final output is a projection layer, so set bias to false
-            _pass_through = fc_layer(current_activations, self.output_size, activation=tf.tanh, bias=False, scope="output")
+            _pass_through = fc_layer(input_=activation_on_final_index, 
+                                     input_size=self.number_of_nodes, 
+                                     output_size=self.output_size, 
+                                     activation=tf.tanh, 
+                                     bias=False, 
+                                     scope="output")
         
         return _pass_through
 
@@ -310,7 +336,7 @@ class ChaosNetwork():
                     taken = weights_taken_table.lookup(weight_match)
                     taken_print = tf.Print(taken, [taken], "taken: ")
 
-                    def notTaken(): 
+                    def not_taken(): 
                         insert_op = weights_taken_table.insert(weight_match, tf.constant(1.0, tf.float32)) # put 1.0 to indicate taken
                         #val_print = tf.Print(val, [val], message="fook")
                         #return val_print
@@ -325,14 +351,14 @@ class ChaosNetwork():
 
                         return (identity_weight_match, False)
 
-                    def isTaken():
+                    def is_taken():
                         incremented_weight_match = tf.cond(tf.equal(weight_match, node_degree-1), lambda: tf.constant(0, dtype=tf.int64), lambda: (weight_match + 1))
                         return (incremented_weight_match, True)
                     
                     # its not taken if its -1, otherwise its taken, set 1 if its taken (cant do both these tasks in same array cause tf complains)                   
                     # kill while loop when its not taken    
 
-                    return tf.cond(tf.equal(taken_print, -1.0), notTaken, isTaken)
+                    return tf.cond(tf.equal(taken_print, -1.0), not_taken, is_taken)
 
                 empty_index_to_write_to, _ = tf.while_loop( find_weight_match_cond, 
                                                             find_weight_match_body, 
@@ -362,14 +388,35 @@ class ChaosNetwork():
 
     def chaos_iteration(self, node_scores, prev_activations):
         
-        chaos_activations = tf.TensorArray(dtype=tf.float64, size=self.number_of_nodes)
-       
-        def chaos_iteration_body(i, activations):
+        # Build a tensor reflecting chaos graph relationships that can be used in the tf computation graph
+        node_degrees = [node.get_degree() for node in self.nodes]
+        node_candidate_fields = [node.get_candidate_field() for node in self.nodes]
+        
+        #all_node_weights = np.array([node.weights for node in self.nodes]) #  would this work IF EACH TENSOR HAD A DIFFERENT DEGREE. JAGGED TENSOR!!! 
+        # print("node_weights, ", node_weights)
 
-            node = self.nodes[i]
-            
-            candidate_field_for_node = node.get_candidate_field()
-            node_degree = node.get_degree()
+
+        all_node_weights = {}
+        for idx, node in enumerate(self.nodes):
+            all_node_weights[idx] = node.weights
+        
+        print(all_node_weights)
+
+        node_degree_t = tf.constant(np.array(node_degrees))
+        node_candidate_fields_t = tf.convert_to_tensor(np.array(node_candidate_fields))
+        # node_weights_t = tf.stack(node_weights) => YOU CANT STACK TENSORFLOW VARIABLES, BECAUSE THEY ARE NOT TENSORS. TF VARIABLES CANNOT BE TREATED LIK TENSORS
+
+        chaos_activations = tf.TensorArray(dtype=tf.float64, size=self.number_of_nodes)
+
+        def chaos_iteration_body(i, activations, all_node_weights):
+
+            candidate_field_for_node = tf.gather(node_candidate_fields_t, i)
+            node_degree = tf.gather(node_degree_t, i)
+            # i is not a tensor, i think its just a python int. also 
+            # I THINK IN A WHILE LOOP YOU CAN HAVE NORMAL PYTHON OBJECTS IN THE LOOP VARS!!! such as a {}, or a [], NOT EVERYTHING HAS TO BE A TENSOR rite...
+            #  How to index a list with a TensorFlow tensor? -> "Simply run tf.gather(list, tf_look_up[index]), you'll get what you want."
+            node_weights = all_node_weights[i]
+
 
             top_values, top_indices = tf.nn.top_k(tf.gather(node_scores, candidate_field_for_node[:, 0]), k=node_degree) # get the scores revelent to the particular node
             # top indices reflects index locations into the candidate_field_for_node array
@@ -383,7 +430,7 @@ class ChaosNetwork():
             #selected_activations = self.selected_field_activations(selected_field_nodes, prev_activations, node_degree)
             selected_activations=tf.constant([[0.3],[0.3],[0.3]], dtype=tf.float64)
 
-            node_evaluation = tf.reduce_sum(tf.matmul(selected_activations, node.weights))
+            node_evaluation = tf.reduce_sum(tf.matmul(selected_activations, node_weights))
 
             node_activation = tf.tanh(node_evaluation)
             
@@ -391,12 +438,12 @@ class ChaosNetwork():
             # chaos_activations.append(node_activation)
             activations = activations.write(i, node_activation)
 
-            return (i+1, activations)
+            return (i+1, activations, all_node_weights)
 
         _, final_chaos_activations = tf.while_loop(
-            lambda idx, activations: tf.less(idx, self.number_of_nodes),  
+            lambda idx, a, b: tf.less(idx, self.number_of_nodes),  
             chaos_iteration_body,
-            (0, chaos_activations),
+            (0, chaos_activations, all_node_weights),
             parallel_iterations=10
         )
 
