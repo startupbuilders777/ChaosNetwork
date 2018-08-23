@@ -308,8 +308,10 @@ def tie_breaking_algo_test():
                                                                                                 #WHICH WILL THEN MULTIPLY WITH WEIGHTS. YES DISABLE BACK PROP HERE!
                                                                                 swap_memory=False)
     
-    result = final_weight_matched_nodes_arr.stack() 
-    print_result = tf.Print(result, [result], "Result is: ")
+    final_weight_matched_nodes_tensor = tf.cast(final_weight_matched_nodes_arr.stack(), dtype=tf.int32)
+    weight_matched_activations = tf.gather(prev_activations, final_weight_matched_nodes_tensor)
+    print_result = tf.Print(weight_matched_activations, [weight_matched_activations], "Weight matched activations is: ")
     print_result.eval()
+    
 
 tie_breaking_algo_test();
