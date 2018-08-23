@@ -3,8 +3,15 @@ import numpy as np
 from util import fc_layer
 
 class Node():
-    def __init__(self, degree, candidate_degree, name, dtype=tf.float64):
+    def __init__(self, degree, chaos_number, candidate_degree, name, dtype=tf.float64):
+        
         self.activation_list = []
+
+        # tensor_array_name = "ta"  + name
+        
+        # self.ta_activation = tf.TensorArray(dtype=dtype, size=chaos_number, dynamic_size=False, name=tensor_array_name )
+        self.currIndex = 0
+
         self.candidate_field_nodes = []
         self._degree = degree
         self._dtype = dtype
@@ -17,20 +24,26 @@ class Node():
                                                                                 stddev=0.5),
                                        dtype=dtype) 
 
+    def clear_node(self): 
+        # clears activations and activations. 
+        self.activation_list.clear();
+
+    
     def add_activation(self, activation):
         self.activation_list.append(activation)
-    
+        # self.ta_activation = self.ta_activation.write(self.currIndex, activation)
+        # self.currIndex += 1
+
     def get_top_activation(self):
         if len(self.activation_list) == 0:
             return None
         else:
             return self.activation_list[-1]
-
+            # return self.ta_activation.read(self.currIndex - 1)
    
     def get_degree(self):
         return self._degree
     
-
     def get_candidate_degree(self):
         return self._candidate_degree
 
@@ -171,7 +184,9 @@ class ChaosNetwork():
         for i in range(number_of_nodes): 
             self.nodes.append(Node(name=("node" + str(i)), 
                                  degree=degree, 
-                                 candidate_degree=candidate_field_size))
+                                 candidate_degree=candidate_field_size,
+                                 chaos_number=self.chaos_number
+                                 ))
 
         
         # assign relantionships now
@@ -195,7 +210,6 @@ class ChaosNetwork():
             self.nodes[i].set_candidate_field(nodes_to_be_in_candidate_field)
 
     def build_controller(self, activation_input, scope=None):
-        
         return fc_layer(activation_input, 
                         self.number_of_nodes, 
                         activation=tf.tanh, 
@@ -223,8 +237,10 @@ class ChaosNetwork():
                                        bias=False,
                                        scope="input")
 
+            print_activation_zero = tf.Print(activation_zero, [activation_zero], "Activation Zero: ")
+
             # give activation 0 to each layer
-            list_of_activation_zero_tensors = tf.unstack(activation_zero, 
+            list_of_activation_zero_tensors = tf.unstack(print_activation_zero, 
                        num=self.number_of_nodes, 
                        axis=0)
             
@@ -233,10 +249,13 @@ class ChaosNetwork():
             node_scores = None #This will contain scores from controller graph
             
             # could probablu do a tf map here and above if, since for loops dont work on computational graph construction
+
+            # build a list up of activation tensors, have a tensor called => all_activation_tensors => keep appending to this tensor activation tensors at a certain timestep,
+            # indexing in will give you the activations for a certain node !!!!!!
             for node_id, i in enumerate(list_of_activation_zero_tensors):
                 self.nodes[node_id].add_activation(i)
 
-                node_scores = self.evaluate_nodes(tf.stack(list_of_activation_zero_tensors))
+            node_scores = self.evaluate_nodes(tf.stack(list_of_activation_zero_tensors))
             
             prev_activations = list_of_activation_zero_tensors
 
@@ -247,7 +266,7 @@ class ChaosNetwork():
                 node_scores = self.evaluate_nodes(current_activations)
                 prev_activations = current_activations
 
-
+            print("current activations: ", current_activations)
             # final output is a projection layer, so set bias to false
             _pass_through = fc_layer(current_activations, self.output_size, activation=tf.tanh, bias=False, scope="output")
         
@@ -343,8 +362,10 @@ class ChaosNetwork():
 
     def chaos_iteration(self, node_scores, prev_activations):
         
-        chaos_activations = []
-        for i in range(self.number_of_nodes):
+        chaos_activations = tf.TensorArray(dtype=tf.float64, size=self.number_of_nodes)
+       
+        def chaos_iteration_body(i, activations):
+
             node = self.nodes[i]
             
             candidate_field_for_node = node.get_candidate_field()
@@ -365,11 +386,23 @@ class ChaosNetwork():
             node_evaluation = tf.reduce_sum(tf.matmul(selected_activations, node.weights))
 
             node_activation = tf.tanh(node_evaluation)
-            node.add_activation(node_activation)
+            
+            # node.add_activation(node_activation)
+            # chaos_activations.append(node_activation)
+            activations = activations.write(i, node_activation)
 
-            chaos_activations.push(node_activation)
+            return (i+1, activations)
 
-        return chaos_activations
+        _, final_chaos_activations = tf.while_loop(
+            lambda idx, activations: tf.less(idx, self.number_of_nodes),  
+            chaos_iteration_body,
+            (0, chaos_activations),
+            parallel_iterations=10
+        )
+
+        return final_chaos_activations.stack()
+
+
 
     def infer(self, inputs):
         if self._infer is None:
