@@ -301,7 +301,7 @@ class ChaosNetwork():
                 next_score_for_nodes = self.score_nodes(current_activations)
 
                 cumulative_chaos = cumulative_chaos.write(idx, current_activations)
-                current_activations.set_shape((None, self.number_of_nodes))
+                #current_activations.set_shape((None, self.number_of_nodes))
                 return (idx+1, cumulative_chaos, next_score_for_nodes, current_activations)
             
 
@@ -315,10 +315,11 @@ class ChaosNetwork():
 
             stacked_total_chaos = total_chaos_from_pass_final.stack()
             stacked_total_chaos_print = tf.Print(stacked_total_chaos, [stacked_total_chaos], "stacked_total_chaos: ")
+          
 
             print("current activations: ", activation_on_final_index)
             # final output is a projection layer, so set bias to false
-            _pass_through = fc_layer(input=activation_on_final_index, 
+            _pass_through = fc_layer(input_=activation_on_final_index, 
                                      input_size=self.number_of_nodes, 
                                      output_size=self.output_size, 
                                      activation=tf.tanh, 
@@ -331,7 +332,7 @@ class ChaosNetwork():
         # gets node activations
         # nodes is an np array of indexes 
         return [self.nodes[i].get_top_activation for i in nodes]
-    
+    '''
     def selected_field_activations(self, selected_field_nodes, prev_activations, node_degree):
             # reading from this
         if(self._selected_field_activations is None): 
@@ -414,6 +415,8 @@ class ChaosNetwork():
             self._selected_field_activations = print_weight_matched_activations
         
         return self._selected_field_activations
+    '''
+    
 
     def chaos_iteration(self, node_scores, prev_activations):
         
@@ -495,6 +498,7 @@ class ChaosNetwork():
         )
 
         new_activations = final_chaos_activations.stack()
+        #new_activations.set_shape([50,50])
         print("CHAOS ITERATION, NEW ACTIVATIONS CALCULATED: ", new_activations)
         return new_activations
 
