@@ -334,9 +334,10 @@ class ChaosNetwork():
         # gets node activations
         # nodes is an np array of indexes 
         return [self.nodes[i].get_top_activation for i in nodes]
-    '''
+  
     def selected_field_activations(self, selected_field_nodes, prev_activations, node_degree):
             # reading from this
+        print("selected_field_nodes put into selected_field_activations,", selected_field_nodes)
         if(self._selected_field_activations is None): 
             input_selected_field_nodes_ta = tf.TensorArray(size=node_degree, dtype=tf.float32, dynamic_size=False)
             input_selected_field_nodes_arr = input_selected_field_nodes_ta.unstack(selected_field_nodes) 
@@ -417,7 +418,7 @@ class ChaosNetwork():
             self._selected_field_activations = print_weight_matched_activations
         
         return self._selected_field_activations
-    '''
+
     
 
     def chaos_iteration(self, node_scores, prev_activations):
@@ -428,6 +429,7 @@ class ChaosNetwork():
 
         #print(all_node_weights)
         print(self.chaos_weights)
+        print(node_candidate_fields)
 
         node_degree_t = tf.constant(np.array(node_degrees, dtype=np.int32))
         node_candidate_fields_t = tf.convert_to_tensor(np.array(node_candidate_fields, dtype=np.int32))
@@ -439,7 +441,7 @@ class ChaosNetwork():
 
         def chaos_iteration_body(i, activations, weight_index_begin):
 
-            candidate_field_for_node = tf.gather(node_candidate_fields_t, i)
+            candidate_field_for_node = tf.reshape(tf.gather(node_candidate_fields_t, i), [-1, 6, 2])
             node_degree = tf.gather(node_degree_t, i)
             print("node_deg,", node_degree)
             print("self.chaos_weights, ", self.chaos_weights)
@@ -476,8 +478,8 @@ class ChaosNetwork():
 
             # sort out the selected_field_nodes and insert them into the array so that ties are broken and the weight matchings are correct
 
-            #selected_activations = self.selected_field_activations(selected_field_nodes, prev_activations, node_degree)
-            selected_activations=tf.constant([[0.3],[0.3],[0.3]], dtype=tf.float32)
+            selected_activations = self.selected_field_activations(selected_field_nodes, prev_activations, node_degree)
+            #selected_activations=tf.constant([[0.3],[0.3],[0.3]], dtype=tf.float32)
             
             print_node_weights = tf.Print(node_weights, [node_weights], "NODE_WEIGHTS: ")
             print_selected_activations = tf.Print(selected_activations, [selected_activations], "SELECTED_ACTIVATIONS: ")
