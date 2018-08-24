@@ -174,7 +174,17 @@ then a will always multiply with w1 if its chosen, (lets use the term weigth-mat
     Solution 3: Use simpler tie breaking rules than solution 2. (however simpler rules than solution 2 will reduce weight node affinity, which is the basis for fast, viable, and accurate learing)
     Solution 4: greedily choose top k nodes, skipping the ones that have a common weight-matching with a node already chosen to be in the selected field. (OK SO AFFINITY IS MAXIMIZED In this solution, but the controller loses their IRON WILL to pass enforcing decisions)
 
+# A neat idea I like from Hinton's CAPSULE NETWORKS (Neurons with vector in vector out instead of scaler in scaler out):
 
+Currently the neurons in the chaos net do scaler in scaler out. These are wh
+BUT MAYBE ITS BETTER IF WE DO WHAT CAPSULE NETWORKS DO:
+vector in vector out. 
+This allows alot more generalization to be done in higher chaos iterations instead of lower iterations. 
+
+(
+    Vectors help because the help us encode more information, and not just any kind of information, relational and relative information.
+)
+ 
 ## Advantages of Chaos Network 
 - Can memorize lots of details due to the high number of permutations and states for "memories" to be in
 - Sort of like the human brain.

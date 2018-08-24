@@ -3,7 +3,7 @@ import numpy as np
 from util import fc_layer
 
 class Node():
-    def __init__(self, degree, chaos_number, candidate_degree, name, dtype=tf.float64):
+    def __init__(self, degree, chaos_number, candidate_degree, name, chaos_weight_scope, dtype=tf.float64):
         
         self.activation_list = []
 
@@ -16,14 +16,20 @@ class Node():
         self._degree = degree
         self._dtype = dtype
         self._candidate_degree = candidate_degree
-
-
-        self.weights = tf.get_variable(name=name, 
-                                       shape=[1, degree],     
+        
+        with tf.variable_scope(chaos_weight_scope):
+            self.weights = tf.get_variable(name=name, 
+                                       shape=[degree],     
                                        initializer=tf.random_normal_initializer(mean=0.0, 
                                                                                 stddev=0.5),
                                        dtype=dtype) 
+            print(self.weights)
 
+            self.chaos_var_scope = chaos_weight_scope
+    
+    def get_weight_scope(self):
+        return self.chaos_var_scope
+    
     def clear_node(self): 
         # clears activations and activations. 
         self.activation_list.clear();
@@ -154,7 +160,10 @@ class ChaosNetwork():
         self.input_size = input_size
         self.output_size = output_size
         self.chaos_number = chaos_number
+        self.chaos_weights = None
 
+        with tf.variable_scope("chaos_weight_scope") as vs: 
+            self.chaos_weight_scope = vs
 
         # defined by chaos graph 
         self._train = None
@@ -174,7 +183,17 @@ class ChaosNetwork():
     def create_chaos_graph(self, method="random"):
         if(method == "random"):
             self.create_random_chaos_graph()
-        
+
+    def initialize_chaos_weights(self, total_degrees):
+        self.chaos_weights = tf.get_variable(name="chaos_weights", 
+                                       shape=[1, total_degrees],     
+                                       initializer=tf.random_normal_initializer(mean=0.0, 
+                                                                                stddev=0.5),
+                                       dtype=tf.float64)
+
+        # Each node has its weight in chaos_weights
+        # the weights for node 3 is: self.chaos_weights[sumOfWeightsForNode1AndNode2 : sumOfWeightsForNode1AndNode2AndNode3]
+
     def create_random_chaos_graph(self):
         number_of_nodes = self.number_of_nodes;
         degree = 3;
@@ -185,10 +204,15 @@ class ChaosNetwork():
             self.nodes.append(Node(name=("node" + str(i)), 
                                  degree=degree, 
                                  candidate_degree=candidate_field_size,
-                                 chaos_number=self.chaos_number
+                                 chaos_number=self.chaos_number, 
+                                 chaos_weight_scope=self.chaos_weight_scope
                                  ))
+        # create chaos weights
+        total_degree = degree * number_of_nodes
+        self.initialize_chaos_weights(total_degree)
+      
 
-        
+          
         # assign relantionships now
         # score 
         for i in range(number_of_nodes):
@@ -257,14 +281,15 @@ class ChaosNetwork():
 
             # build a list up of activation tensors, have a tensor called => all_activation_tensors => keep appending to this tensor activation tensors at a certain timestep,
             # indexing in will give you the activations for a certain node !!!!!!
-            for node_id, i in enumerate(list_of_activation_zero_tensors):
-                self.nodes[node_id].add_activation(i)
+            # for node_id, i in enumerate(list_of_activation_zero_tensors):
+            #    self.nodes[node_id].add_activation(i)
+            
             list_of_activation_zero_tensors = tf.stack(list_of_activation_zero_tensors)
             node_scores = self.score_nodes(list_of_activation_zero_tensors)
             
             prev_activations = list_of_activation_zero_tensors
-            print(prev_activations)
-            print(prev_activations.get_shape())
+            print("prev_activations, ", prev_activations)
+            print("prev_activations_shape, ", prev_activations.get_shape())
 
             def pass_iteration(idx, cumulative_chaos, scores_for_nodes, prev_activations):
                 # this probably has to be tf.while
@@ -391,32 +416,45 @@ class ChaosNetwork():
         # Build a tensor reflecting chaos graph relationships that can be used in the tf computation graph
         node_degrees = [node.get_degree() for node in self.nodes]
         node_candidate_fields = [node.get_candidate_field() for node in self.nodes]
-        
-        #all_node_weights = np.array([node.weights for node in self.nodes]) #  would this work IF EACH TENSOR HAD A DIFFERENT DEGREE. JAGGED TENSOR!!! 
-        # print("node_weights, ", node_weights)
 
+        #print(all_node_weights)
+        print(self.chaos_weights)
 
-        all_node_weights = {}
-        for idx, node in enumerate(self.nodes):
-            all_node_weights[idx] = node.weights
-        
-        print(all_node_weights)
-
-        node_degree_t = tf.constant(np.array(node_degrees))
-        node_candidate_fields_t = tf.convert_to_tensor(np.array(node_candidate_fields))
+        node_degree_t = tf.constant(np.array(node_degrees, dtype=np.int32))
+        node_candidate_fields_t = tf.convert_to_tensor(np.array(node_candidate_fields, dtype=np.int32))
         # node_weights_t = tf.stack(node_weights) => YOU CANT STACK TENSORFLOW VARIABLES, BECAUSE THEY ARE NOT TENSORS. TF VARIABLES CANNOT BE TREATED LIK TENSORS
 
         chaos_activations = tf.TensorArray(dtype=tf.float64, size=self.number_of_nodes)
 
-        def chaos_iteration_body(i, activations, all_node_weights):
+        def chaos_iteration_body(i, activations, weight_index_begin):
 
             candidate_field_for_node = tf.gather(node_candidate_fields_t, i)
             node_degree = tf.gather(node_degree_t, i)
+            print("node_deg,", node_degree)
+            
+            node_weights = self.chaos_weights[:, weight_index_begin: weight_index_begin + i]#tf.slice(self.chaos_weights, begin=[weight_index_begin], size=[node_degree]) 
+            
+       
+            print("candidate_field_for_node", candidate_field_for_node)
+            print("node weights: ", node_weights)
+
             # i is not a tensor, i think its just a python int. also 
             # I THINK IN A WHILE LOOP YOU CAN HAVE NORMAL PYTHON OBJECTS IN THE LOOP VARS!!! such as a {}, or a [], NOT EVERYTHING HAS TO BE A TENSOR rite...
             #  How to index a list with a TensorFlow tensor? -> "Simply run tf.gather(list, tf_look_up[index]), you'll get what you want."
-            node_weights = all_node_weights[i]
+            
+            
+            '''
+            # THIS DOESNT WORK WHEN FETCHING TF VARIABLES. 
+            # WHY? you cant have a name as a tensor. but everything is a tensor... #tfsucks
 
+            node_name = tf.string_join(["node", tf.as_string(i)])
+            print(node_name)
+            print_node_name = tf.Print(node_name, [node_name], "node's weight name: ")
+            with tf.name_scope(None): #EXIT THE WHILE SCOPE
+                with tf.variable_scope(self.chaos_weight_scope, reuse=True):     
+                    node_weights = tf.get_variable(name=print_node_name) #tf.gather(all_node_weights, index)
+            '''
+            
 
             top_values, top_indices = tf.nn.top_k(tf.gather(node_scores, candidate_field_for_node[:, 0]), k=node_degree) # get the scores revelent to the particular node
             # top indices reflects index locations into the candidate_field_for_node array
@@ -429,21 +467,24 @@ class ChaosNetwork():
 
             #selected_activations = self.selected_field_activations(selected_field_nodes, prev_activations, node_degree)
             selected_activations=tf.constant([[0.3],[0.3],[0.3]], dtype=tf.float64)
+            
+            node_dot_prod = tf.matmul(node_weights, selected_activations)
+            print("node_mat_mult", node_dot_prod)
 
-            node_evaluation = tf.reduce_sum(tf.matmul(selected_activations, node_weights))
+            #node_evaluation = tf.reduce_sum(node_mat_mult)
 
-            node_activation = tf.tanh(node_evaluation)
+            node_activation = tf.tanh(node_dot_prod)
             
             # node.add_activation(node_activation)
             # chaos_activations.append(node_activation)
             activations = activations.write(i, node_activation)
+            
+            return (i+1, activations, weight_index_begin + node_degree)
 
-            return (i+1, activations, all_node_weights)
-
-        _, final_chaos_activations = tf.while_loop(
+        _, final_chaos_activations, _ = tf.while_loop(
             lambda idx, a, b: tf.less(idx, self.number_of_nodes),  
             chaos_iteration_body,
-            (0, chaos_activations, all_node_weights),
+            (0, chaos_activations, 0),
             parallel_iterations=10
         )
 

@@ -199,12 +199,21 @@ def tf_mutable_hash_table_techniques():
     device='CPU'; key_dtype in [DT_INT64]; value_dtype in [DT_STRING]
     device='CPU'; key_dtype in [DT_STRING]; value_dtype in [DT_INT64]
     device='CPU'; key_dtype in [DT_STRING]; value_dtype in [DT_FLOAT]
-
-
     '''
 
+# you cannot put tensor variables in hash map
+def tf_mutable_hash_table_techniques_2():
+    table2 = tf.contrib.lookup.MutableHashTable(key_dtype=tf.int64, value_dtype=tf.float32, default_value=-1)
 
-#tf_mutable_hash_table_techniques()
+    for i in range(12):
+        var = tf.get_variable(name=str(i), shape=[1], dtype=tf.float32)
+        insert_op = table2.insert(tf.constant(i, dtype=tf.int64), var)
+    
+    #insert_op.eval()
+    result = table2.lookup(tf.constant(2, tf.int64))
+    print(result.eval())
+
+# tf_mutable_hash_table_techniques_2()
 
 def tie_breaking_algo_test():
     
