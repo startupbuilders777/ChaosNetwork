@@ -255,9 +255,10 @@ class ChaosNetwork():
             #just a projection layer, therefore, no bias
             
             total_chaos_from_pass = tf.TensorArray(size=self.chaos_number, dtype=self.dtype)
-            chaos_idx = 0
+            chaos_idx = tf.constant(0, tf.int32)
             
             print("inputs", inputs)
+            #print("inputs shape", inputs.shape())
 
             activation_zero = fc_layer(input_=inputs,
                                        input_size = self.input_size, 
@@ -265,13 +266,13 @@ class ChaosNetwork():
                                        activation=tf.tanh, 
                                        bias=False,
                                        scope="input")
+            
+            print("activation zero, ", activation_zero)
 
-            print_activation_zero = tf.Print(activation_zero, [activation_zero], "Activation Zero: ")
+            #print_activation_zero = tf.Print(activation_zero, [activation_zero], "Activation Zero: ")
 
             # give activation 0 to each layer
-            list_of_activation_zero_tensors = tf.unstack(print_activation_zero, 
-                       num=self.number_of_nodes, 
-                       axis=0)
+            list_of_activation_zero_tensors = activation_zero
             
             # TREAT STEP 0 SEPERATE FROM STEP 1 TO STEP <ChaosNumber>
 
@@ -284,7 +285,7 @@ class ChaosNetwork():
             # for node_id, i in enumerate(list_of_activation_zero_tensors):
             #    self.nodes[node_id].add_activation(i)
             
-            list_of_activation_zero_tensors = tf.stack(list_of_activation_zero_tensors)
+            #list_of_activation_zero_tensors = tf.stack(list_of_activation_zero_tensors)
             node_scores = self.score_nodes(list_of_activation_zero_tensors)
             
             prev_activations = list_of_activation_zero_tensors
@@ -295,17 +296,20 @@ class ChaosNetwork():
                 # this probably has to be tf.while
                 current_activations = self.chaos_iteration(scores_for_nodes, prev_activations) # current activations should be a tensor array of activations
                 
+                print("current_activations, ", current_activations)
+
                 next_score_for_nodes = self.score_nodes(current_activations)
 
                 cumulative_chaos = cumulative_chaos.write(idx, current_activations)
-                
+                current_activations.set_shape((None, self.number_of_nodes))
                 return (idx+1, cumulative_chaos, next_score_for_nodes, current_activations)
             
 
             _, total_chaos_from_pass_final, final_node_scores, activation_on_final_index = tf.while_loop(
                 lambda idx, a, b, c : tf.less(idx, self.chaos_number), 
                 pass_iteration, 
-                (chaos_idx, total_chaos_from_pass, node_scores, prev_activations), 
+                [chaos_idx, total_chaos_from_pass, node_scores, prev_activations], 
+                shape_invariants=[chaos_idx.get_shape(), tf.TensorShape(None), node_scores.get_shape(), tf.TensorShape([None, None])],
                 parallel_iterations = 1, 
                 back_prop=True)
 
@@ -314,7 +318,7 @@ class ChaosNetwork():
 
             print("current activations: ", activation_on_final_index)
             # final output is a projection layer, so set bias to false
-            _pass_through = fc_layer(input_=activation_on_final_index, 
+            _pass_through = fc_layer(input=activation_on_final_index, 
                                      input_size=self.number_of_nodes, 
                                      output_size=self.output_size, 
                                      activation=tf.tanh, 
@@ -473,10 +477,12 @@ class ChaosNetwork():
 
             #node_evaluation = tf.reduce_sum(node_mat_mult)
 
-            node_activation = tf.tanh(node_dot_prod)
+            node_activation = tf.reshape( tf.tanh(node_dot_prod), [-1])
             
             # node.add_activation(node_activation)
             # chaos_activations.append(node_activation)
+            print("node_activation,", node_activation)
+
             activations = activations.write(i, node_activation)
             
             return (i+1, activations, weight_index_begin + node_degree)
@@ -488,7 +494,9 @@ class ChaosNetwork():
             parallel_iterations=10
         )
 
-        return final_chaos_activations.stack()
+        new_activations = final_chaos_activations.stack()
+        print("CHAOS ITERATION, NEW ACTIVATIONS CALCULATED: ", new_activations)
+        return new_activations
 
 
 
