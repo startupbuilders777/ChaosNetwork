@@ -334,10 +334,20 @@ class ChaosNetwork():
         # gets node activations
         # nodes is an np array of indexes 
         return [self.nodes[i].get_top_activation for i in nodes]
-  
+    
+
+    # batch size 4 results will look like after executing function this: 
+    # selected_activations=tf.constant([[0.3, 0.4, 0.2, 0.6],[0.3, 0.5, 0.4, 0.5],[0.3, 0.7, 0.7, 0.8]], dtype=tf.float32)
+    # selected field nodes => (6, ?, 2) => candidate field size is 6. batch size is ?. 2 is because each candidate node is a tuple [x,y], 
+    #                                      where x is the node id of the candidate field and y is the matching with its most preferred node
+    # For example:
+    
+    # prev_activations_shape,  (?, 50) => ? is batch size. 50 is the number of nodes
     def selected_field_activations(self, selected_field_nodes, prev_activations, node_degree):
             # reading from this
         print("selected_field_nodes put into selected_field_activations,", selected_field_nodes)
+        print("prev activations put into selected_field_activationsm, ", prev_activations)
+
         if(self._selected_field_activations is None): 
             input_selected_field_nodes_ta = tf.TensorArray(size=node_degree, dtype=tf.float32, dynamic_size=False)
             input_selected_field_nodes_arr = input_selected_field_nodes_ta.unstack(selected_field_nodes) 
@@ -441,7 +451,8 @@ class ChaosNetwork():
 
         def chaos_iteration_body(i, activations, weight_index_begin):
 
-            candidate_field_for_node = tf.reshape(tf.gather(node_candidate_fields_t, i), [-1, 6, 2])
+            #candidate_field_for_node = tf.reshape(tf.gather(node_candidate_fields_t, i), [-1, 6, 2])
+            candidate_field_for_node = tf.gather(node_candidate_fields_t, i)
             node_degree = tf.gather(node_degree_t, i)
             print("node_deg,", node_degree)
             print("self.chaos_weights, ", self.chaos_weights)
@@ -472,15 +483,21 @@ class ChaosNetwork():
             top_values, top_indices = tf.nn.top_k(tf.gather(node_scores, candidate_field_for_node[:, 0]), k=node_degree) # get the scores revelent to the particular node
             # top indices reflects index locations into the candidate_field_for_node array
             # which will retrieve the node id's for nodes that are in the top sore.
+            print("top_values", top_values)
+            print("top_indices", top_indices)
+
             selected_field_nodes = tf.gather(tf.convert_to_tensor(candidate_field_for_node), top_indices) # indexing into an np array
 
             # the field input has to be sorted based on which activation inputs will multiply with which weights...
 
             # sort out the selected_field_nodes and insert them into the array so that ties are broken and the weight matchings are correct
 
+            # actiivations has to be shaped like below => each val in the array is a single activation for a batch size of 2
+            # selected_activations=tf.constant([[0.3, 0.4],[0.3, 0.5],[0.3, 0.7]], dtype=tf.float32) 
+            # batch size 4 will be like this: 
+            # selected_activations=tf.constant([[0.3, 0.4, 0.2, 0.6],[0.3, 0.5, 0.4, 0.5],[0.3, 0.7, 0.7, 0.8]], dtype=tf.float32)
             selected_activations = self.selected_field_activations(selected_field_nodes, prev_activations, node_degree)
-            #selected_activations=tf.constant([[0.3],[0.3],[0.3]], dtype=tf.float32)
-            
+
             print_node_weights = tf.Print(node_weights, [node_weights], "NODE_WEIGHTS: ")
             print_selected_activations = tf.Print(selected_activations, [selected_activations], "SELECTED_ACTIVATIONS: ")
 

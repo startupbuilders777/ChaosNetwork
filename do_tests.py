@@ -10,7 +10,7 @@ mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)
 # Parameters
 learning_rate = 0.01
 training_epochs = 25
-batch_size = 100
+batch_size = 4
 display_step = 1
 logs_path = '/tmp/tensorflow_logs/example'
 # Network Parameters
