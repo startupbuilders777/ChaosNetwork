@@ -432,6 +432,8 @@ class ChaosNetwork():
         # node_weights_t = tf.stack(node_weights) => YOU CANT STACK TENSORFLOW VARIABLES, BECAUSE THEY ARE NOT TENSORS. TF VARIABLES CANNOT BE TREATED LIK TENSORS
 
         chaos_activations = tf.TensorArray(dtype=tf.float64, size=self.number_of_nodes)
+        print("chaos_activations_tensor_array", chaos_activations)
+
 
         def chaos_iteration_body(i, activations, weight_index_begin):
 
@@ -494,10 +496,13 @@ class ChaosNetwork():
             lambda idx, a, b: tf.less(idx, self.number_of_nodes),  
             chaos_iteration_body,
             (0, chaos_activations, 0),
-            parallel_iterations=10
+            parallel_iterations=1
         )
 
-        new_activations = final_chaos_activations.stack()
+        new_activations = tf.reshape(final_chaos_activations.stack(), (-1, 50))
+        
+        #new_activations.set_shape([None, self.number_of_nodes])
+
         #new_activations.set_shape([50,50])
         print("CHAOS ITERATION, NEW ACTIVATIONS CALCULATED: ", new_activations)
         return new_activations
