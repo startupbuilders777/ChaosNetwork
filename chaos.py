@@ -23,7 +23,7 @@ class Node():
                                        initializer=tf.random_normal_initializer(mean=0.0, 
                                                                                 stddev=0.5),
                                        dtype=dtype) 
-            print(self.weights)
+            # print(self.weights)
 
             self.chaos_var_scope = chaos_weight_scope
     
@@ -318,8 +318,10 @@ class ChaosNetwork():
           
 
             print("current activations: ", activation_on_final_index)
+            print_final = tf.Print(activation_on_final_index, [activation_on_final_index], "activation_on_final_index")
+
             # final output is a projection layer, so set bias to false
-            _pass_through = fc_layer(input_=activation_on_final_index, 
+            _pass_through = fc_layer(input_=print_final, 
                                      input_size=self.number_of_nodes, 
                                      output_size=self.output_size, 
                                      activation=tf.tanh, 
@@ -440,8 +442,8 @@ class ChaosNetwork():
             candidate_field_for_node = tf.gather(node_candidate_fields_t, i)
             node_degree = tf.gather(node_degree_t, i)
             print("node_deg,", node_degree)
-            
-            node_weights = self.chaos_weights[:, weight_index_begin: weight_index_begin + i]#tf.slice(self.chaos_weights, begin=[weight_index_begin], size=[node_degree]) 
+            print("self.chaos_weights, ", self.chaos_weights)
+            node_weights = self.chaos_weights[:, weight_index_begin: weight_index_begin + node_degree]#tf.slice(self.chaos_weights, begin=[weight_index_begin], size=[node_degree]) 
             
        
             print("candidate_field_for_node", candidate_field_for_node)
@@ -477,6 +479,9 @@ class ChaosNetwork():
             #selected_activations = self.selected_field_activations(selected_field_nodes, prev_activations, node_degree)
             selected_activations=tf.constant([[0.3],[0.3],[0.3]], dtype=tf.float32)
             
+            print_node_weights = tf.Print(node_weights, [node_weights], "NODE_WEIGHTS: ")
+            print_selected_activations = tf.Print(selected_activations, [selected_activations], "SELECTED_ACTIVATIONS: ")
+
             node_dot_prod = tf.matmul(node_weights, selected_activations)
             print("node_mat_mult", node_dot_prod)
 

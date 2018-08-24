@@ -1,5 +1,6 @@
 
 import tensorflow as tf
+import numpy as np
 
 from chaos import ChaosNetwork
 
@@ -146,7 +147,8 @@ def chaosGraphBaseline():
             # Loop over all batches
             for i in range(total_batch):
                 batch_xs, batch_ys = mnist.train.next_batch(batch_size)
-                print("batch_xs", batch_xs)
+                print("batch_xs", np.array(batch_xs).shape )
+
                 # Run optimization op (backprop), cost op (to get loss value)
                 # and summary nodes
                 sess.run(train,
