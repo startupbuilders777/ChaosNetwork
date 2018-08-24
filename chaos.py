@@ -3,7 +3,7 @@ import numpy as np
 from util import fc_layer
 
 class Node():
-    def __init__(self, degree, chaos_number, candidate_degree, name, chaos_weight_scope, dtype=tf.float64):
+    def __init__(self, degree, chaos_number, candidate_degree, name, chaos_weight_scope, dtype=tf.float32):
         
         self.activation_list = []
 
@@ -153,7 +153,7 @@ class ChaosNetwork():
                  load_graph_structure = False,
                  graph_structure = None):
 
-        self.dtype = tf.float64
+        self.dtype = tf.float32
         self.degree_map = degree_map 
         self.number_of_nodes = number_of_nodes
         self.nodes = []    
@@ -189,7 +189,7 @@ class ChaosNetwork():
                                        shape=[1, total_degrees],     
                                        initializer=tf.random_normal_initializer(mean=0.0, 
                                                                                 stddev=0.5),
-                                       dtype=tf.float64)
+                                       dtype=tf.float32)
 
         # Each node has its weight in chaos_weights
         # the weights for node 3 is: self.chaos_weights[sumOfWeightsForNode1AndNode2 : sumOfWeightsForNode1AndNode2AndNode3]
@@ -431,7 +431,7 @@ class ChaosNetwork():
         node_candidate_fields_t = tf.convert_to_tensor(np.array(node_candidate_fields, dtype=np.int32))
         # node_weights_t = tf.stack(node_weights) => YOU CANT STACK TENSORFLOW VARIABLES, BECAUSE THEY ARE NOT TENSORS. TF VARIABLES CANNOT BE TREATED LIK TENSORS
 
-        chaos_activations = tf.TensorArray(dtype=tf.float64, size=self.number_of_nodes)
+        chaos_activations = tf.TensorArray(dtype=tf.float32, size=self.number_of_nodes)
         print("chaos_activations_tensor_array", chaos_activations)
 
 
@@ -475,7 +475,7 @@ class ChaosNetwork():
             # sort out the selected_field_nodes and insert them into the array so that ties are broken and the weight matchings are correct
 
             #selected_activations = self.selected_field_activations(selected_field_nodes, prev_activations, node_degree)
-            selected_activations=tf.constant([[0.3],[0.3],[0.3]], dtype=tf.float64)
+            selected_activations=tf.constant([[0.3],[0.3],[0.3]], dtype=tf.float32)
             
             node_dot_prod = tf.matmul(node_weights, selected_activations)
             print("node_mat_mult", node_dot_prod)
