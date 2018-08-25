@@ -16,16 +16,10 @@ class Node():
         self._degree = degree
         self._dtype = dtype
         self._candidate_degree = candidate_degree
-        
-        with tf.variable_scope(chaos_weight_scope):
-            self.weights = tf.get_variable(name=name, 
-                                       shape=[degree],     
-                                       initializer=tf.random_normal_initializer(mean=0.0, 
-                                                                                stddev=0.5),
-                                       dtype=dtype) 
+
             # print(self.weights)
 
-            self.chaos_var_scope = chaos_weight_scope
+        self.chaos_var_scope = chaos_weight_scope
     
     def get_weight_scope(self):
         return self.chaos_var_scope
@@ -37,8 +31,7 @@ class Node():
     
     def add_activation(self, activation):
         self.activation_list.append(activation)
-        # self.ta_activation = self.ta_activation.write(self.currIndex, activation)
-        # self.currIndex += 1
+
 
     def get_top_activation(self):
         if len(self.activation_list) == 0:
@@ -382,11 +375,10 @@ class ChaosNetwork():
         def get_activation_from_selected_nodes(selected_field_nodes, batch_idx):
             # reading from this
             input_selected_field_nodes_ta = tf.TensorArray(size=node_degree, dtype=tf.float32, dynamic_size=False)
-            input_selected_field_nodes_arr = input_selected_field_nodes_ta.unstack(selected_field_nodes) 
+            input_selected_field_nodes_arr = input_selected_field_nodes_ta.unstack(tf.cast(selected_field_nodes, dtype=tf.float32)) 
 
             #writing to this
             weight_matched_nodes_arr = tf.TensorArray(dtype=tf.float32, size=node_degree, dynamic_size=False)
-            #weights_matched_nodes_arr = weight_matched_nodes_ta.unstack(np.array([-1] * node_degree, dtype=np.float32)) 
             
             # OK SO I GOT THIS ISSUE:  TensorArray TensorArray_1_1: Could not write to TensorArray index 2 because it has already been read.
             # this is because we cant read from an array and then write to it in the outer while loop, so just split to two output arrays. (MAYBE THATS THE issue not sure)
@@ -459,7 +451,6 @@ class ChaosNetwork():
                                                             loop_vars=(weight_match, True))
                 
                 output_arr_changed = output_arr.write(tf.cast(empty_index_to_write_to, dtype=tf.int32), node_id)
-                #output_arr.write(tf.cast(empty_index_to_write_to, dtype=tf.int32), node_id)
                 
                 return (index + 1, output_arr_changed)
 
@@ -593,7 +584,7 @@ class ChaosNetwork():
             # selected_activations=tf.constant([[0.3, 0.4],[0.3, 0.5],[0.3, 0.7]], dtype=tf.float32) 
             # batch size 4 will be like this: 
             #selected_activations=tf.constant([[0.3, 0.4, 0.2, 0.6],[0.3, 0.5, 0.4, 0.5],[0.3, 0.7, 0.7, 0.8]], dtype=tf.float32)
-            selected_activations = self.selected_field_activations(selected_field_nodes_print, prev_activations, node_degree, "BATCH")
+            selected_activations = tf.reshape(self.selected_field_activations(selected_field_nodes_print, prev_activations, node_degree, "BATCH"), [node_degree, -1])
             selected_activations_print = tf.Print(selected_activations, [selected_activations], "SELECTED_ACTIVATIONS: ", summarize=90)
 
             #print_node_weights = tf.Print(node_weights, [node_weights], "NODE_WEIGHTS: ")
