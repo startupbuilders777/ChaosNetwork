@@ -129,7 +129,8 @@ def chaosGraphBaseline():
     chaos_net = ChaosNetwork(number_of_nodes=50, 
                            input_size=n_input, 
                            output_size=n_classes, 
-                           chaos_number=12)
+                           chaos_number=12,
+                           batch_size=batch_size)
     
     train, train_loss = chaos_net.train(x, y)
 

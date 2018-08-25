@@ -383,11 +383,11 @@ def tie_breaking_algo_with_batches_test():
 
     def get_activation_from_selected_nodes(selected_field_nodes, batch_idx):
         # reading from this
-        input_selected_field_nodes_ta = tf.TensorArray(size=node_degree, dtype=tf.float32, dynamic_size=False, name=str(calendar.timegm(time.gmtime())))
+        input_selected_field_nodes_ta = tf.TensorArray(size=node_degree, dtype=tf.float32, dynamic_size=False)
         input_selected_field_nodes_arr = input_selected_field_nodes_ta.unstack(selected_field_nodes) 
 
         #writing to this
-        weight_matched_nodes_arr = tf.TensorArray(dtype=tf.float32, size=node_degree, dynamic_size=False, name=str(calendar.timegm(time.gmtime())))
+        weight_matched_nodes_arr = tf.TensorArray(dtype=tf.float32, size=node_degree, dynamic_size=False)
         #weights_matched_nodes_arr = weight_matched_nodes_ta.unstack(np.array([-1] * node_degree, dtype=np.float32)) 
         
         # OK SO I GOT THIS ISSUE:  TensorArray TensorArray_1_1: Could not write to TensorArray index 2 because it has already been read.
@@ -395,8 +395,8 @@ def tie_breaking_algo_with_batches_test():
         #with tf.name_scope(str(calendar.timegm(time.gmtime()))):
         weights_taken_table = tf.contrib.lookup.MutableHashTable(key_dtype=tf.int64, 
                                                                  value_dtype=tf.float32, 
-                                                                 default_value=-1,
-                                                                 name=str(calendar.timegm(time.gmtime())) ) # fetech new mutable map each time
+                                                                 default_value=-1
+                                                                  ) # fetech new mutable map each time
 
         
         # I HAD THIS ERROR FOR THE LONGEST TIME. BECAUSE PARALLEL ITERATIONS FOR MAP WAS 10, AND IT WASNT CLEARING, EVEN WITH THE CONTROL DEPENDENICES 
@@ -501,11 +501,14 @@ def tie_breaking_algo_with_batches_test():
     print("batch_indexes,", batch_indexes)
     
     elems = (selected_field_nodes_batched,  batch_indexes) #second array is just indexes to be used.
-    batched_activations = tf.map_fn(lambda elem: get_activation_from_selected_nodes(elem[0], elem[1]), elems, dtype=tf.float32, parallel_iterations=1)
+    batched_activations = tf.map_fn(lambda elem: get_activation_from_selected_nodes(elem[0], elem[1]), 
+                                    elems, 
+                                    dtype=tf.float32, 
+                                    parallel_iterations=1)
 
-
-    print(batched_activations.eval())
     
+    print(batched_activations.eval())
+    return batched_activations
 
 
 tie_breaking_algo_with_batches_test();

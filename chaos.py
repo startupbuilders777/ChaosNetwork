@@ -144,11 +144,13 @@ class ChaosNetwork():
     chaos_number is the number of iterations and activations completed in chaos graph before outputting result
 
     '''
+    #TODO: REMOVE BATCH_SIZE FROM INIT. it can be inferred from input. 
     def __init__(self, 
                  number_of_nodes, 
                  input_size,
                  output_size, 
-                 chaos_number, 
+                 chaos_number,
+                 batch_size,  
                  degree_map= None, 
                  load_graph_structure = False,
                  graph_structure = None):
@@ -160,7 +162,9 @@ class ChaosNetwork():
         self.input_size = input_size
         self.output_size = output_size
         self.chaos_number = chaos_number
+        self.batch_size = batch_size
         self.chaos_weights = None
+        self.highest_degree_node = 3
 
         with tf.variable_scope("chaos_weight_scope") as vs: 
             self.chaos_weight_scope = vs
@@ -336,19 +340,47 @@ class ChaosNetwork():
         return [self.nodes[i].get_top_activation for i in nodes]
     
 
-    # batch size 4 results will look like after executing function this: 
-    # selected_activations=tf.constant([[0.3, 0.4, 0.2, 0.6],[0.3, 0.5, 0.4, 0.5],[0.3, 0.7, 0.7, 0.8]], dtype=tf.float32)
-    # selected field nodes => (6, ?, 2) => candidate field size is 6. batch size is ?. 2 is because each candidate node is a tuple [x,y], 
-    #                                      where x is the node id of the candidate field and y is the matching with its most preferred node
-    # For example:
     
-    # prev_activations_shape,  (?, 50) => ? is batch size. 50 is the number of nodes
-    def selected_field_activations(self, selected_field_nodes, prev_activations, node_degree):
-            # reading from this
-        print("selected_field_nodes put into selected_field_activations,", selected_field_nodes)
-        print("prev activations put into selected_field_activationsm, ", prev_activations)
+    def selected_field_activations_batch(self, selected_field_nodes_batched, prev_activations, node_degree):
+        # this is the selected field nodes. it is a tensor that indicates each node that was selected in this
+        # chaos iteration from the candidate field by a node.
+        # its a list of tuples [x,y], where x is the node id (which is used to retrieve the node from the chaos graph), 
+        # and the weight it usually couples with. 
+        # a greedy tie breaking algo is used, if the weight is already taken. 
+        
+        # the top k nodes (for batch 1) are 1 -> 3 -> 6 in that order (1, 3, and 6 were in the candidate field for this node, along with a bunch of other ones)     
+        # selected_field_nodes_batched = tf.convert_to_tensor([ [[1, 2], [3,2], [6,0]], [[4,2] , [6,0],  [7,1]] ], dtype=tf.float32)
+        # selected_field_nodes shape is (node_degree, batch_Size, 2)
+        #selected_field_nodes_batched = tf.reshape(selected_field_nodes_batched, [-1, node_degree, 2])
 
-        if(self._selected_field_activations is None): 
+        # so the weights should match like this: 
+        # 1 -> weight2
+        # 3 -> weight0
+        # 6 -> weight1
+        # (node1 gets 2, node3 cant get 2 so it gets 0 (its next favorite), node6 cant get 0 so it gets 1 (node6's next favorite))
+
+        # in this algo the previous activations were: (so there were 11 nodes, and the index into the array is the node id):
+        
+        # in this algo the previous activations were: (so there were 11 nodes, and the index into the array is the node id):
+        # activations have batch size 2
+        # prev_activations = [[0.3, 0.6, 0.2, 0.5, 0.4, 0.3, 0.7, 0.8, 0.4, 0.6, 0.5], 
+        #                    [0.2, 0.5, 0.6, 0.0, 0.74, 0.3, 0.4, 0.1, 0.1, 0.1, 0.2]]
+
+
+        #selected_field_nodes_batched = tf.convert_to_tensor( [ [[1, 2], [3, 2], [6,0]] ], dtype=tf.float32)
+
+        #prev_activations = [[0.3, 0.6, 0.2, 0.5, 0.4, 0.3, 0.7, 0.8, 0.4, 0.6, 0.5]]
+
+        # the tie breaking algo should give us [3, 6, 1] and then we do prev_activations[3,6,1] to gather the activations for those nodes
+        # and finally do the matrix multiple with the weights [0.5, 0.7, 0.6]
+
+        #JUST MAP OVER THE BATHC!!!
+
+        index = 0
+        batch_size = self.batch_size
+
+        def get_activation_from_selected_nodes(selected_field_nodes, batch_idx):
+            # reading from this
             input_selected_field_nodes_ta = tf.TensorArray(size=node_degree, dtype=tf.float32, dynamic_size=False)
             input_selected_field_nodes_arr = input_selected_field_nodes_ta.unstack(selected_field_nodes) 
 
@@ -358,10 +390,26 @@ class ChaosNetwork():
             
             # OK SO I GOT THIS ISSUE:  TensorArray TensorArray_1_1: Could not write to TensorArray index 2 because it has already been read.
             # this is because we cant read from an array and then write to it in the outer while loop, so just split to two output arrays. (MAYBE THATS THE issue not sure)
+            #with tf.name_scope(str(calendar.timegm(time.gmtime()))):
+            weights_taken_table = tf.contrib.lookup.MutableHashTable(key_dtype=tf.int64, 
+                                                                    value_dtype=tf.float32, 
+                                                                    default_value=-1,
+                                                                     )
 
-            weights_taken_table = tf.contrib.lookup.MutableHashTable(key_dtype=tf.int64, value_dtype=tf.float32, default_value=-1)
-
-
+            
+            # I HAD THIS ERROR FOR THE LONGEST TIME. BECAUSE PARALLEL ITERATIONS FOR MAP WAS 10, AND IT WASNT CLEARING, EVEN WITH THE CONTROL DEPENDENICES 
+            # AND INFITIE LOOPING.
+            # FIX BY TURNING PARALLEL ITERATIONS TO 1 AND USING THE FOLLOWING CONTROL DEPENDENICES.
+            # OKAY TIME FOR SOME OPEN SOURCE WORK FOR THE TF LIBRARY. WHY ISNT THERE A CLEAR HASH TABLE FUNCTION ???
+            # OK CODE TO CLEAR MAP HERE:
+            # 
+            
+            map_clearing_ops = []
+            for i in range(self.highest_degree_node): # CLEAR UP TO THE HIGHEST DEGREE NODE.
+                op = weights_taken_table.insert(tf.constant(i, dtype=tf.int64), tf.constant(-1.0, tf.float32))
+                map_clearing_ops.append(op)
+                
+            # CLEAR THE TABLE ??
             def find_weight_matched_nodes_cond(index, output_arrm):
                 return index < node_degree
             
@@ -376,10 +424,11 @@ class ChaosNetwork():
                     return keep_going
                     
                 def find_weight_match_body(weight_match, keep_going):
-                    taken = weights_taken_table.lookup(weight_match)
+                    weight_match_print = tf.Print(weight_match, [weight_match], "weight_match: ") 
+                    taken = weights_taken_table.lookup(weight_match_print)
                     taken_print = tf.Print(taken, [taken], "taken: ")
 
-                    def not_taken(): 
+                    def notTaken(): 
                         insert_op = weights_taken_table.insert(weight_match, tf.constant(1.0, tf.float32)) # put 1.0 to indicate taken
                         #val_print = tf.Print(val, [val], message="fook")
                         #return val_print
@@ -394,14 +443,14 @@ class ChaosNetwork():
 
                         return (identity_weight_match, False)
 
-                    def is_taken():
-                        incremented_weight_match = tf.cond(tf.equal(weight_match, node_degree-1), lambda: tf.constant(0, dtype=tf.int64), lambda: (weight_match + 1))
+                    def isTaken():
+                        incremented_weight_match = tf.cond(tf.equal(weight_match, tf.cast(node_degree-1, dtype=tf.int64) ), lambda: tf.constant(0, dtype=tf.int64), lambda: (weight_match + 1))
                         return (incremented_weight_match, True)
                     
                     # its not taken if its -1, otherwise its taken, set 1 if its taken (cant do both these tasks in same array cause tf complains)                   
                     # kill while loop when its not taken    
 
-                    return tf.cond(tf.equal(taken_print, -1.0), not_taken, is_taken)
+                    return tf.cond(tf.equal(taken_print, -1.0), notTaken, isTaken)
 
                 empty_index_to_write_to, _ = tf.while_loop( find_weight_match_cond, 
                                                             find_weight_match_body, 
@@ -413,21 +462,56 @@ class ChaosNetwork():
                 
                 return (index + 1, output_arr_changed)
 
-            _,  final_weight_matched_nodes_arr = tf.while_loop(find_weight_matched_nodes_cond, 
-                                                                        find_weight_matched_nodes_body, 
-                                                                        loop_vars=(0, weight_matched_nodes_arr), 
-                                                                                        shape_invariants=None,
-                                                                                        parallel_iterations=1, 
-                                                                                        back_prop=True,  #MAYBE NO BACKPROP TRAINING NEEDED HERE BECAUSE WE ARE JUST REORDERING RESULTS. 
-                                                                                                        #WHICH WILL THEN MULTIPLY WITH WEIGHTS. YES DISABLE BACK PROP HERE!
-                                                                                        swap_memory=False)
+            with tf.control_dependencies(map_clearing_ops):
+                _,  final_weight_matched_nodes_arr = tf.while_loop(find_weight_matched_nodes_cond, 
+                                                                            find_weight_matched_nodes_body, 
+                                                                            loop_vars=(index, weight_matched_nodes_arr), 
+                                                                                            shape_invariants=None,
+                                                                                            parallel_iterations=1, 
+                                                                                            back_prop=True,  #MAYBE NO BACKPROP TRAINING NEEDED HERE BECAUSE WE ARE JUST REORDERING RESULTS. 
+                                                                                                            #WHICH WILL THEN MULTIPLY WITH WEIGHTS. YES DISABLE BACK PROP HERE!
+                                                                                            swap_memory=False)
             
             final_weight_matched_nodes_tensor = tf.cast(final_weight_matched_nodes_arr.stack(), dtype=tf.int32)
-            weight_matched_activations = tf.gather(prev_activations, final_weight_matched_nodes_tensor)
-            print_weight_matched_activations = tf.Print(weight_matched_activations, [weight_matched_activations], "Weight matched activations is: ")
-            self._selected_field_activations = print_weight_matched_activations
+            
+            op = final_weight_matched_nodes_arr.close()
+            print("tensor array tingssss,", op)
+            print_prev_activations = tf.Print(prev_activations, [prev_activations], "prev_activations: ")
+
+            weight_matched_activations = tf.gather(print_prev_activations[batch_idx ] , final_weight_matched_nodes_tensor) # fcking up here
+            
+            result = weights_taken_table.export()
+            print("result", result)
+
+            #print(result.eval())
+            print_result = tf.Print(weight_matched_activations, [weight_matched_activations], "Weight matched activations is: ")
+            
+
+            return print_result
         
-        return self._selected_field_activations
+        # ACTIVATIONS SHAPE HAS TO BE (?, DEGREE)
+
+        
+        print("selected_field_nodes_batch shape ", selected_field_nodes_batched.shape) # (2, 3, 2) => batchsize, degree size, weight_matching_
+        batch_indexes = tf.convert_to_tensor(np.array( [ i for i in range(batch_size) ]  ))
+        
+        print("batch_indexes,", batch_indexes)
+        
+        elems = (selected_field_nodes_batched,  batch_indexes) #second array is just indexes to be used.
+        batched_activations = tf.map_fn(lambda elem: get_activation_from_selected_nodes(elem[0], elem[1]), 
+                                        elems, 
+                                        dtype=tf.float32, 
+                                        parallel_iterations=1)
+        
+        return batched_activations
+
+    
+
+    def selected_field_activations(self, selected_field_nodes, prev_activations, node_degree, batch_type="BATCH"):
+            #if(batch_type == "NO_BATCH"):
+            #    return self.selected_field_activations_no_batch(selected_field_nodes, prev_activations, node_degree)
+            #else if(batch_type == "BATCH"):
+            return self.selected_field_activations_batch(selected_field_nodes, prev_activations, node_degree)
 
     
 
@@ -486,7 +570,7 @@ class ChaosNetwork():
             print("top_values", top_values)
             print("top_indices", top_indices)
 
-            selected_field_nodes = tf.gather(tf.convert_to_tensor(candidate_field_for_node), top_indices) # indexing into an np array
+            selected_field_nodes = tf.reshape(tf.gather(tf.convert_to_tensor(candidate_field_for_node), top_indices), [-1, node_degree, 2]) # indexing into an np array
 
             # the field input has to be sorted based on which activation inputs will multiply with which weights...
 
@@ -496,7 +580,7 @@ class ChaosNetwork():
             # selected_activations=tf.constant([[0.3, 0.4],[0.3, 0.5],[0.3, 0.7]], dtype=tf.float32) 
             # batch size 4 will be like this: 
             # selected_activations=tf.constant([[0.3, 0.4, 0.2, 0.6],[0.3, 0.5, 0.4, 0.5],[0.3, 0.7, 0.7, 0.8]], dtype=tf.float32)
-            selected_activations = self.selected_field_activations(selected_field_nodes, prev_activations, node_degree)
+            selected_activations = self.selected_field_activations(selected_field_nodes, prev_activations, node_degree, "BATCH")
 
             print_node_weights = tf.Print(node_weights, [node_weights], "NODE_WEIGHTS: ")
             print_selected_activations = tf.Print(selected_activations, [selected_activations], "SELECTED_ACTIVATIONS: ")
