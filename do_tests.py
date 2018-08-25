@@ -1,7 +1,7 @@
 
 import tensorflow as tf
 import numpy as np
-
+import datetime
 from chaos import ChaosNetwork
 
 # Import MNIST data
@@ -9,8 +9,8 @@ from tensorflow.examples.tutorials.mnist import input_data
 mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)
 # Parameters
 learning_rate = 0.01
-training_epochs = 25
-batch_size = 4
+training_epochs = 2000
+batch_size = 20
 display_step = 1
 logs_path = '/tmp/tensorflow_logs/example'
 # Network Parameters
@@ -126,6 +126,11 @@ def chaosGraphBaseline():
     # THE CHAOS NETWORK ITSELF.
     # PPL USING API SHOULD BE BUILDING WHATEVER NETS THEY WANT AND ADD
     # CHAOS NET AS A LAYER IN THEIR ARCHITECTURE. 
+    
+    x = tf.placeholder(tf.float32, [None, 784], name='InputData')
+    # 0-9 digits recognition => 10 classes
+    y = tf.placeholder(tf.float32, [None, 10], name='LabelData')
+
     chaos_net = ChaosNetwork(number_of_nodes=50, 
                            input_size=n_input, 
                            output_size=n_classes, 
@@ -133,27 +138,71 @@ def chaosGraphBaseline():
                            batch_size=batch_size)
     
     train, train_loss = chaos_net.train(x, y)
+    error, loss_op, accuracy = chaos_net.test(x, y)
 
+
+    test_error_summary = tf.summary.scalar("testError", error)
+    test_loss_summary = tf.summary.scalar("testLoss", loss_op)
+    test_loss_summary = tf.summary.scalar("testAccuracy", accuracy)
+    test_summary_op = tf.summary.merge([test_error_summary, test_loss_summary])
+
+    train_error_summary = tf.summary.scalar("trainError", error)
+    train_loss_summary = tf.summary.scalar("trainLoss", loss_op)
+    train_summary_op = tf.summary.merge([train_error_summary, train_loss_summary])
+
+
+    saver = tf.train.Saver(max_to_keep=0)
+    
     init = tf.global_variables_initializer()
 
     with tf.Session() as sess:
         sess.run(init)
         # op to write logs to Tensorboard
-        summary_writer = tf.summary.FileWriter("./",
+        writer = tf.summary.FileWriter("./chaos_net_logs/" + str(datetime.datetime.now()) + "/",
                                             graph=tf.get_default_graph())
+
+
+        
         # Training cycle
         for epoch in range(training_epochs):
             avg_cost = 0.
             total_batch = int(mnist.train.num_examples / batch_size)
             # Loop over all batches
             for i in range(total_batch):
-                batch_xs, batch_ys = mnist.train.next_batch(batch_size)
-                print("batch_xs", np.array(batch_xs).shape )
+                data_x, data_y = mnist.train.next_batch(batch_size)
+                print(i)
+
+
+                #print("batch_xs", np.array(data_xs).shape )
 
                 # Run optimization op (backprop), cost op (to get loss value)
                 # and summary nodes
-                sess.run(train,
-                                        feed_dict={x: batch_xs, y: batch_ys})
+                sess.run(train, feed_dict={x: data_x, y: data_y})
+                
+                if(i % 2 == 0):
+                    # TEST IT
+                    test_x, test_y = mnist.train.next_batch(batch_size)
+
+                    writer.add_summary(
+                        sess.run(test_summary_op,
+                             feed_dict={x: test_x, y: test_y},
+                            
+                            ),
+
+                    i)
+
+                    writer.add_summary(
+                        sess.run(train_summary_op,
+                             feed_dict={x: data_x, y: data_y},
+                            
+                            ),
+
+                    i)
+                    
+                    
+                    # print(np.argmax(test_y, 2)[0])
+                    # print(np.argmax(test_mask * sess.run(inference, feed_dict={batch_x: test_x, keep_prob: 1.0}), 2)[0])
+                
                 # Write logs at every iteration
                 #summary_writer.add_summary(summary, epoch * total_batch + i)
                 # Compute average loss

@@ -15,8 +15,14 @@ def fc_layer(input_, input_size, output_size, activation=None, bias=True, scope=
             scope - string
                 defaults to be None then scope becomes "fc"
     '''
-    with tf.variable_scope(scope or "fc"):
-        w = tf.get_variable(name="weight", shape=[input_size, output_size],
+    with tf.variable_scope(scope or "fc") as sc:
+        try:
+            w = tf.get_variable(name="weight", shape=[input_size, output_size],
+                            initializer=tf.contrib.layers.xavier_initializer(), dtype=dtype)
+
+        except ValueError:
+            sc.reuse_variables()
+            w = tf.get_variable(name="weight", shape=[input_size, output_size],
                             initializer=tf.contrib.layers.xavier_initializer(), dtype=dtype)
         output_ = tf.matmul(input_, w)
         if bias:
