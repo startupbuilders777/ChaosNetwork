@@ -448,7 +448,7 @@ def tie_breaking_algo_with_batches_test():
                     return (identity_weight_match, False)
 
                 def isTaken():
-                    incremented_weight_match = tf.cond(tf.equal(weight_match, node_degree-1), lambda: tf.constant(0, dtype=tf.int64), lambda: (weight_match + 1))
+                    incremented_weight_match = tf.cond(tf.equal(weight_match, tf.cast(node_degree-1, dtype=tf.int64)), lambda: tf.constant(0, dtype=tf.int64), lambda: (weight_match + 1))
                     return (incremented_weight_match, True)
                 
                 # its not taken if its -1, otherwise its taken, set 1 if its taken (cant do both these tasks in same array cause tf complains)                   
