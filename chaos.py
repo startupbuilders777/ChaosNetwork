@@ -477,7 +477,7 @@ class ChaosNetwork():
             
             op = final_weight_matched_nodes_arr.close()
             print("tensor array tingssss,", op)
-            print_prev_activations = tf.Print(prev_activations, [prev_activations], "prev_activations: ")
+            print_prev_activations = tf.Print(prev_activations, [prev_activations], "prev_activations: ", summarize=90)
 
             weight_matched_activations = tf.gather(print_prev_activations[batch_idx ] , final_weight_matched_nodes_tensor) # fcking up here
 
@@ -536,14 +536,14 @@ class ChaosNetwork():
         def chaos_iteration_body(i, activations, weight_index_begin):
 
             #candidate_field_for_node = tf.reshape(tf.gather(node_candidate_fields_t, i), [-1, 6, 2])
-            candidate_field_for_node = tf.gather(node_candidate_fields_t, i)
+            candidate_field_for_node_with_weight_matching = tf.gather(node_candidate_fields_t, i)
             node_degree = tf.gather(node_degree_t, i)
             print("node_deg,", node_degree)
             print("self.chaos_weights, ", self.chaos_weights)
             node_weights = self.chaos_weights[:, weight_index_begin: weight_index_begin + node_degree]#tf.slice(self.chaos_weights, begin=[weight_index_begin], size=[node_degree]) 
             
        
-            print("candidate_field_for_node", candidate_field_for_node)
+            print("candidate_field_for_node with weight matching", candidate_field_for_node_with_weight_matching)
             print("node weights: ", node_weights)
 
             # i is not a tensor, i think its just a python int. also 
@@ -563,8 +563,14 @@ class ChaosNetwork():
                     node_weights = tf.get_variable(name=print_node_name) #tf.gather(all_node_weights, index)
             '''
             
+            print("node scores,", node_scores) # node scores, Tensor("while/Identity_2:0", shape=(?, 50), dtype=float32)
 
-            top_values, top_indices = tf.nn.top_k(tf.gather(node_scores, candidate_field_for_node[:, 0]), k=node_degree) # get the scores revelent to the particular node
+
+            candidate_field_for_node = candidate_field_for_node_with_weight_matching[:, 0]
+            
+            #can reshape nodes as [total_number_of_nodes, ?] => then grab it, then reshape back. orrrr use gather and axis argument
+            
+            top_values, top_indices = tf.nn.top_k(tf.gather(node_scores, candidate_field_for_node, axis=1), k=node_degree) # get the scores revelent to the particular node
             # top indices reflects index locations into the candidate_field_for_node array
             # which will retrieve the node id's for nodes that are in the top sore.
             print("top_values", top_values)
@@ -574,7 +580,10 @@ class ChaosNetwork():
             #top_values_print = tf.Print(top_values, [top_values], "TOP_VALUES: ")
 
 
-            selected_field_nodes = tf.reshape(tf.gather(tf.convert_to_tensor(candidate_field_for_node), top_indices_print), [-1, node_degree, 2]) # indexing into an np array
+            selected_field_nodes = tf.reshape(tf.gather(tf.convert_to_tensor(candidate_field_for_node_with_weight_matching), top_indices_print), [-1, node_degree, 2]) # indexing into an np array
+            selected_field_nodes_print = tf.Print(selected_field_nodes, [selected_field_nodes ], "SELECTED FIELD NODES: ", summarize=90)
+            # SELECTED FIELD NODES PRINTED ARE:
+            #SELECTED FIELD NODES: [[[12 1][25 2][33 2]][[12 1][11 1][25 2]][[12 1][31 0][25 2]][[12 1][31 0][11 1]]]
 
             # the field input has to be sorted based on which activation inputs will multiply with which weights...
 
@@ -584,17 +593,18 @@ class ChaosNetwork():
             # selected_activations=tf.constant([[0.3, 0.4],[0.3, 0.5],[0.3, 0.7]], dtype=tf.float32) 
             # batch size 4 will be like this: 
             #selected_activations=tf.constant([[0.3, 0.4, 0.2, 0.6],[0.3, 0.5, 0.4, 0.5],[0.3, 0.7, 0.7, 0.8]], dtype=tf.float32)
-            selected_activations = self.selected_field_activations(selected_field_nodes, prev_activations, node_degree, "BATCH")
+            selected_activations = self.selected_field_activations(selected_field_nodes_print, prev_activations, node_degree, "BATCH")
+            selected_activations_print = tf.Print(selected_activations, [selected_activations], "SELECTED_ACTIVATIONS: ", summarize=90)
 
-            print_node_weights = tf.Print(node_weights, [node_weights], "NODE_WEIGHTS: ")
-            print_node_weights = tf.Print(print_node_weights, [selected_field_nodes], "SELECTED_FIELD_NODES:  ")
-            print_node_weights = tf.Print(print_node_weights, [selected_activations], "SELECTED_ACTIVATIONS: ")
+            #print_node_weights = tf.Print(node_weights, [node_weights], "NODE_WEIGHTS: ")
+            #print_node_weights = tf.Print(print_node_weights, [selected_field_nodes], "SELECTED_FIELD_NODES:  ")
+            #print_node_weights = tf.Print(print_node_weights, [selected_activations], "SELECTED_ACTIVATIONS: ")
 
-            node_dot_prod = tf.matmul(node_weights, selected_activations)
-            print("node_mat_mult", node_dot_prod)
+            node_dot_prod = tf.matmul(node_weights, selected_activations_print)
+            #print("node_mat_mult", node_dot_prod)
 
             #node_evaluation = tf.reduce_sum(node_mat_mult)
-            node_dot_prod_print = tf.Print(node_dot_prod, [selected_field_nodes], "Selected_field_nodes:  ")
+           
             node_activation = tf.reshape( tf.tanh(node_dot_prod), [-1])
             
             # node.add_activation(node_activation)
