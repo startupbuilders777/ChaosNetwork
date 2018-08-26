@@ -256,7 +256,7 @@ class ChaosNetwork():
                                     scope="input")
             
             print("activation zero, ", activation_zero)
-            activation_zero = tf.Print(activation_zero, [activation_zero], "Activation Zero: ")
+            activation_zero = tf.Print(activation_zero, [activation_zero], "Activation Zero: ", summarize=90)
             # give activation 0 to each layer
             list_of_activation_zero_tensors = activation_zero
             
@@ -271,7 +271,7 @@ class ChaosNetwork():
             
             #list_of_activation_zero_tensors = tf.stack(list_of_activation_zero_tensors)
             node_scores = self.score_nodes(list_of_activation_zero_tensors)
-            node_scores = tf.Print(node_scores, [node_scores], "NODE_SCORES IN CHAOS ITERATION BODY: ", summarize=90)
+            node_scores = tf.Print(node_scores, [node_scores], "NODE_SCORES time 0 IN CHAOS ITERATION BODY: ", summarize=90)
             
             prev_activations = list_of_activation_zero_tensors
             print("prev_activations, ", prev_activations)
@@ -280,8 +280,15 @@ class ChaosNetwork():
                 # this probably has to be tf.while
                 current_activations = self.chaos_iteration(scores_for_nodes, prev_activations) # current activations should be a tensor array of activations
                 
+                current_activations = tf.Print(current_activations, [current_activations], "CURRENT_ACTIVATIONS IN CHAOS_ITERATION BODY", summarize=90)
+
+
                 print("current_activations, ", current_activations)
                 next_score_for_nodes = self.score_nodes(current_activations)
+
+                next_score_for_nodes = tf.Print(next_score_for_nodes, [next_score_for_nodes], "NEXT_SCORES_FOR_NODES: ", summarize=90)
+
+
                 cumulative_chaos = cumulative_chaos.write(idx, current_activations)
                 #current_activations.set_shape((None, self.number_of_nodes))
                 return (idx+1, cumulative_chaos, next_score_for_nodes, current_activations)
@@ -546,8 +553,14 @@ class ChaosNetwork():
             candidate_field_for_node = candidate_field_for_node_with_weight_matching[:, 0]
             
             #can reshape nodes as [total_number_of_nodes, ?] => then grab it, then reshape back. orrrr use gather and axis argument
+            node_scores_for_candidate_field = tf.gather(node_scores, candidate_field_for_node, axis=1)
+
+            node_scores_for_candidate_field = tf.Print(node_scores_for_candidate_field, [node_scores_for_candidate_field], "node_scodes_for_candidate_field: ", summarize=90)
             
-            top_values, top_indices = tf.nn.top_k(tf.gather(node_scores, candidate_field_for_node, axis=1), k=node_degree) # get the scores revelent to the particular node
+            top_values, top_indices = tf.nn.top_k(node_scores_for_candidate_field, 
+                                                  k=node_degree,
+                                                  sorted = True) 
+            # get the scores revelent to the particular node
             # top indices reflects index locations into the candidate_field_for_node array
             # which will retrieve the node id's for nodes that are in the top sore.
             print("top_values", top_values)
@@ -557,7 +570,11 @@ class ChaosNetwork():
             top_indices = tf.Print(top_indices, [top_values], "TOP_VALUES:  ", summarize=90)
             
 
-            selected_field_nodes = tf.reshape(tf.gather(tf.convert_to_tensor(candidate_field_for_node_with_weight_matching), top_indices), [-1, node_degree, 2]) # indexing into an np array
+            selected_field_nodes = tf.reshape(tf.gather(tf.convert_to_tensor(candidate_field_for_node_with_weight_matching), 
+                                              top_indices), [-1, node_degree, 2]) # WRONG, TOP INDICES IS ONLY FOR NODE_sCORE_FOR_CANDIDATE_FIELD
+
+
+
             selected_field_nodes = tf.Print(selected_field_nodes, [selected_field_nodes], "SELECTED_FIELD_NODES in chaos iteration body: ", summarize=90)
 
             # selected_field_nodes = tf.Print(selected_field_nodes, [selected_field_nodes ], "SELECTED FIELD NODES: ", summarize=90)
@@ -580,8 +597,10 @@ class ChaosNetwork():
             #print("node_mat_mult", node_dot_prod)
 
             #node_evaluation = tf.reduce_sum(node_mat_mult)
-           
+            node_dot_prod = tf.Print(node_dot_prod, [node_dot_prod], "NODE_DOT_PROD: ", summarize=90)
             node_activation = tf.reshape( tf.tanh(node_dot_prod), [-1])
+            node_activation = tf.Print(node_activation, [node_activation], "NODE_ACTIVATION: ", summarize=90)
+
             
             # node.add_activation(node_activation)
             # chaos_activations.append(node_activation)
@@ -599,7 +618,7 @@ class ChaosNetwork():
             parallel_iterations=1
         )
 
-        new_activations = tf.reshape(final_chaos_activations.stack(), (-1, 50))
+        new_activations = tf.reshape(final_chaos_activations.stack(), (-1, self.number_of_nodes))
         new_activations = tf.Print(new_activations, [new_activations], "NEW ACTIVATIONS: ")
 
         #new_activations.set_shape([None, self.number_of_nodes])

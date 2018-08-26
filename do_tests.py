@@ -129,10 +129,10 @@ def chaosGraphBaseline():
     # 0-9 digits recognition => 10 classes
     y = tf.placeholder(tf.float32, [None, 10], name='LabelData')
 
-    chaos_net = ChaosNetwork(number_of_nodes=50, 
+    chaos_net = ChaosNetwork(number_of_nodes=20, 
                            input_size=n_input, 
                            output_size=n_classes, 
-                           chaos_number=1,
+                           chaos_number=2,
                            batch_size=batch_size)
     
     train, train_loss = chaos_net.train(x, y)
