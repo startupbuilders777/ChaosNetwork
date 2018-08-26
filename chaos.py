@@ -106,6 +106,13 @@ for each node (so activation at index 0, or activation 0)
 '''
 
 
+# Pass in class Object that defines the structure for the graph
+
+#class StructuredChaosNetworkGraph():
+    
+
+#class RandomChaosNetworkGraph():
+    
 
 
 class ChaosNetwork():
@@ -183,7 +190,7 @@ class ChaosNetwork():
     def create_random_chaos_graph(self):
         number_of_nodes = self.number_of_nodes;
         degree = 3;
-        candidate_field_size = 6;
+        candidate_field_size = 3;
 
         # index position in array is the node name.
         for i in range(number_of_nodes): 
@@ -556,7 +563,7 @@ class ChaosNetwork():
             node_scores_for_candidate_field = tf.gather(node_scores, candidate_field_for_node, axis=1)
 
             node_scores_for_candidate_field = tf.Print(node_scores_for_candidate_field, [node_scores_for_candidate_field], "node_scodes_for_candidate_field: ", summarize=90)
-            
+
             top_values, top_indices = tf.nn.top_k(node_scores_for_candidate_field, 
                                                   k=node_degree,
                                                   sorted = True) 
@@ -644,8 +651,9 @@ class ChaosNetwork():
             loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, 
                                                                              labels=batch_y))
             optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
-            train_op = optimizer.minimize(loss_op)
-            self._train = train_op, loss_op
+            compute_grads = optimizer.compute_gradients(loss_op)
+            train_op = optimizer.apply_gradients(grads_and_vars=compute_grads)#optimizer.minimize(loss_op)
+            self._train = train_op, loss_op, compute_grads
         
         return self._train
     

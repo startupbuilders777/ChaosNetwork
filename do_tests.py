@@ -7,12 +7,7 @@ from chaos import ChaosNetwork
 # Import MNIST data
 from tensorflow.examples.tutorials.mnist import input_data
 mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)
-# Parameters
-learning_rate = 0.01
-training_epochs = 2000
-batch_size = 1
-display_step = 1
-logs_path = '/tmp/tensorflow_logs/example'
+
 # Network Parameters
 
 n_input = 784  # MNIST data input (img shape: 28*28)
@@ -39,6 +34,13 @@ def multilayer_perceptron(x, weights, biases):
     return out_layer
 
 def baseline():
+    # Parameters
+    learning_rate = 0.01
+    training_epochs = 2000
+    batch_size = 100
+    display_step = 1
+    logs_path = "./fc_net_baseline_logs/" + str(datetime.datetime.now()) + "/"
+    
     n_hidden_1 = 256  # 1st layer number of features
     n_hidden_2 = 256  # 2nd layer number of features
         # Store layers weight & bias
@@ -52,6 +54,8 @@ def baseline():
         'b2': tf.Variable(tf.random_normal([n_hidden_2]), name='b2'),
         'b3': tf.Variable(tf.random_normal([n_classes]), name='b3')
     }
+
+
     # Encapsulating all ops into scopes, making Tensorboard's Graph
     # Visualization more convenient
     with tf.name_scope('Model'):
@@ -119,6 +123,12 @@ def baseline():
             "\nThen open http://0.0.0.0:6006/ into your web browser")
 
 def chaosGraphBaseline():
+    # Parameters
+    learning_rate = 0.01
+    training_epochs = 2000
+    batch_size = 100
+    display_step = 1
+    logs_path = '/tmp/tensorflow_logs/example'
     
     # TODO: DECOUPLE INPUT AND OUTPUT PROJECTION LAYER INSIDE CHAOS NETWORK FROM 
     # THE CHAOS NETWORK ITSELF.
@@ -135,18 +145,20 @@ def chaosGraphBaseline():
                            chaos_number=2,
                            batch_size=batch_size)
     
-    train, train_loss = chaos_net.train(x, y)
+    train, train_loss, compute_grads = chaos_net.train(x, y)
     error, loss_op, accuracy = chaos_net.test(x, y)
 
 
     test_error_summary = tf.summary.scalar("testError", error)
     test_loss_summary = tf.summary.scalar("testLoss", loss_op)
-    test_loss_summary = tf.summary.scalar("testAccuracy", accuracy)
-    test_summary_op = tf.summary.merge([test_error_summary, test_loss_summary])
+    test_accuracy_summary = tf.summary.scalar("testAccuracy", accuracy)
+    test_summary_op = tf.summary.merge([test_error_summary, test_accuracy_summary, test_loss_summary])
+
+    train_grad_summ_op = tf.summary.merge([tf.summary.histogram("%s-grad" % g[1].name, g[0]) for g in compute_grads])
 
     train_error_summary = tf.summary.scalar("trainError", error)
     train_loss_summary = tf.summary.scalar("trainLoss", loss_op)
-    train_summary_op = tf.summary.merge([train_error_summary, train_loss_summary])
+    train_summary_op = tf.summary.merge([train_error_summary, train_loss_summary, train_grad_summ_op])
 
 
     saver = tf.train.Saver(max_to_keep=0)
@@ -160,7 +172,7 @@ def chaosGraphBaseline():
                                             graph=tf.get_default_graph())
 
 
-        
+
         # Training cycle
         for epoch in range(training_epochs):
             avg_cost = 0.
@@ -210,3 +222,6 @@ def chaosGraphBaseline():
             #    print("Epoch:", '%04d' % (epoch + 1), "cost=", "{:.9f}".format(avg_cost))
 
 chaosGraphBaseline()
+
+# baseline()
+
