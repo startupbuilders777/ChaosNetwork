@@ -10,7 +10,7 @@ mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)
 # Parameters
 learning_rate = 0.01
 training_epochs = 2000
-batch_size = 20
+batch_size = 1
 display_step = 1
 logs_path = '/tmp/tensorflow_logs/example'
 # Network Parameters
@@ -37,8 +37,6 @@ def multilayer_perceptron(x, weights, biases):
     # Output layer
     out_layer = tf.add(tf.matmul(layer_2, weights['w3']), biases['b3'])
     return out_layer
-
-
 
 def baseline():
     n_hidden_1 = 256  # 1st layer number of features
@@ -134,7 +132,7 @@ def chaosGraphBaseline():
     chaos_net = ChaosNetwork(number_of_nodes=50, 
                            input_size=n_input, 
                            output_size=n_classes, 
-                           chaos_number=12,
+                           chaos_number=1,
                            batch_size=batch_size)
     
     train, train_loss = chaos_net.train(x, y)

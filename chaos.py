@@ -6,29 +6,18 @@ class Node():
     def __init__(self, degree, chaos_number, candidate_degree, name, chaos_weight_scope, dtype=tf.float32):
         
         self.activation_list = []
-
-        # tensor_array_name = "ta"  + name
-        
-        # self.ta_activation = tf.TensorArray(dtype=dtype, size=chaos_number, dynamic_size=False, name=tensor_array_name )
         self.currIndex = 0
 
         self.candidate_field_nodes = []
         self._degree = degree
         self._dtype = dtype
         self._candidate_degree = candidate_degree
-
-            # print(self.weights)
-
         self.chaos_var_scope = chaos_weight_scope
     
     def get_weight_scope(self):
         return self.chaos_var_scope
     
-    def clear_node(self): 
-        # clears activations and activations. 
-        self.activation_list.clear();
 
-    
     def add_activation(self, activation):
         self.activation_list.append(activation)
 
@@ -38,7 +27,6 @@ class Node():
             return None
         else:
             return self.activation_list[-1]
-            # return self.ta_activation.read(self.currIndex - 1)
    
     def get_degree(self):
         return self._degree
@@ -268,7 +256,7 @@ class ChaosNetwork():
                                     scope="input")
             
             print("activation zero, ", activation_zero)
-            #print_activation_zero = tf.Print(activation_zero, [activation_zero], "Activation Zero: ")
+            activation_zero = tf.Print(activation_zero, [activation_zero], "Activation Zero: ")
             # give activation 0 to each layer
             list_of_activation_zero_tensors = activation_zero
             
@@ -283,6 +271,7 @@ class ChaosNetwork():
             
             #list_of_activation_zero_tensors = tf.stack(list_of_activation_zero_tensors)
             node_scores = self.score_nodes(list_of_activation_zero_tensors)
+            node_scores = tf.Print(node_scores, [node_scores], "NODE_SCORES IN CHAOS ITERATION BODY: ", summarize=90)
             
             prev_activations = list_of_activation_zero_tensors
             print("prev_activations, ", prev_activations)
@@ -302,8 +291,9 @@ class ChaosNetwork():
                 pass_iteration, 
                 [chaos_idx, total_chaos_from_pass, node_scores, prev_activations], 
                 shape_invariants=[chaos_idx.get_shape(), tf.TensorShape(None), node_scores.get_shape(), tf.TensorShape([None, None])],
-                parallel_iterations = 1, 
+                parallel_iterations = 1, # must do first iteration before you can start seconnd one right...
                 back_prop=True)
+            
             stacked_total_chaos = total_chaos_from_pass_final.stack()
             # stacked_total_chaos = tf.Print(stacked_total_chaos, [stacked_total_chaos], "stacked_total_chaos: ")
         
@@ -369,6 +359,9 @@ class ChaosNetwork():
         def get_activation_from_selected_nodes(selected_field_nodes, batch_idx):
             # reading from this
             input_selected_field_nodes_ta = tf.TensorArray(size=node_degree, dtype=tf.float32, dynamic_size=False)
+
+            selected_field_nodes = tf.Print(selected_field_nodes, [selected_field_nodes], "SELECTED FIELD NODES in selected_field_nodes_batch: ", summarize=90)
+
             input_selected_field_nodes_arr = input_selected_field_nodes_ta.unstack(tf.cast(selected_field_nodes, dtype=tf.float32)) 
 
             #writing to this
@@ -416,8 +409,6 @@ class ChaosNetwork():
 
                     def notTaken(): 
                         insert_op = weights_taken_table.insert(weight_match, tf.constant(1.0, tf.float32)) # put 1.0 to indicate taken
-                        #val_print = tf.Print(val, [val], message="fook")
-                        #return val_print
                         with tf.control_dependencies([insert_op]):
                             # Now, we are under the dependency scope:
                             # All the operations happening here will only happens after 
@@ -459,7 +450,7 @@ class ChaosNetwork():
                                                                                             swap_memory=False)
             
             final_weight_matched_nodes_tensor = tf.cast(final_weight_matched_nodes_arr.stack(), dtype=tf.int32)
-            
+            final_weight_matched_nodes_tensor = tf.Print(final_weight_matched_nodes_tensor, [final_weight_matched_nodes_tensor], "final_weight_matched_nodes_tensor: ")
             op = final_weight_matched_nodes_arr.close()
             print("tensor array tingssss,", op)
             # prev_activations = tf.Print(prev_activations, [prev_activations], "prev_activations: ", summarize=90)
@@ -468,7 +459,7 @@ class ChaosNetwork():
 
 
             #print(result.eval())
-            # weight_matched_activations = tf.Print(weight_matched_activations, [weight_matched_activations], "Weight matched activations is: ")
+            weight_matched_activations = tf.Print(weight_matched_activations, [weight_matched_activations], "Weight matched activations is: ")
             
 
             return weight_matched_activations
@@ -535,7 +526,7 @@ class ChaosNetwork():
             # I THINK IN A WHILE LOOP YOU CAN HAVE NORMAL PYTHON OBJECTS IN THE LOOP VARS!!! such as a {}, or a [], NOT EVERYTHING HAS TO BE A TENSOR rite...
             #  How to index a list with a TensorFlow tensor? -> "Simply run tf.gather(list, tf_look_up[index]), you'll get what you want."
             
-            
+            candidate_field_for_node_with_weight_matching = tf.Print(candidate_field_for_node_with_weight_matching, [candidate_field_for_node_with_weight_matching], "candidate_field_for_node_with_weight_matching", summarize=90)
             '''
             # THIS DOESNT WORK WHEN FETCHING TF VARIABLES. 
             # WHY? you cant have a name as a tensor. but everything is a tensor... #tfsucks
@@ -549,6 +540,7 @@ class ChaosNetwork():
             '''
             
             print("node scores,", node_scores) # node scores, Tensor("while/Identity_2:0", shape=(?, 50), dtype=float32)
+       
 
 
             candidate_field_for_node = candidate_field_for_node_with_weight_matching[:, 0]
@@ -561,11 +553,13 @@ class ChaosNetwork():
             print("top_values", top_values)
             print("top_indices", top_indices)
 
-            # top_indices = tf.Print(top_indices, [top_indices, top_values], "TOP_INDICIES: ")
-            #top_values_print = tf.Print(top_values, [top_values], "TOP_VALUES: ")
-
+            top_indices = tf.Print(top_indices, [top_indices], "TOP_INDICIES:  ", summarize=90)
+            top_indices = tf.Print(top_indices, [top_values], "TOP_VALUES:  ", summarize=90)
+            
 
             selected_field_nodes = tf.reshape(tf.gather(tf.convert_to_tensor(candidate_field_for_node_with_weight_matching), top_indices), [-1, node_degree, 2]) # indexing into an np array
+            selected_field_nodes = tf.Print(selected_field_nodes, [selected_field_nodes], "SELECTED_FIELD_NODES in chaos iteration body: ", summarize=90)
+
             # selected_field_nodes = tf.Print(selected_field_nodes, [selected_field_nodes ], "SELECTED FIELD NODES: ", summarize=90)
             # SELECTED FIELD NODES PRINTED ARE:
             #SELECTED FIELD NODES: [[[12 1][25 2][33 2]][[12 1][11 1][25 2]][[12 1][31 0][25 2]][[12 1][31 0][11 1]]]
@@ -577,9 +571,10 @@ class ChaosNetwork():
             # actiivations has to be shaped like below => each val in the array is a single activation for a batch size of 2
             # selected_activations=tf.constant([[0.3, 0.4],[0.3, 0.5],[0.3, 0.7]], dtype=tf.float32) 
             # batch size 4 will be like this: 
-            #selected_activations=tf.constant([[0.3, 0.4, 0.2, 0.6],[0.3, 0.5, 0.4, 0.5],[0.3, 0.7, 0.7, 0.8]], dtype=tf.float32)
+            # selected_activations=tf.constant([[0.3, 0.4, 0.2, 0.6],[0.3, 0.5, 0.4, 0.5],[0.3, 0.7, 0.7, 0.8]], dtype=tf.float32)
             selected_activations = tf.reshape(self.selected_field_activations(selected_field_nodes, prev_activations, node_degree, "BATCH"), [node_degree, -1])
-            # selected_activations = tf.Print(selected_activations, [selected_activations], "SELECTED_ACTIVATIONS: ", summarize=90)
+            selected_activations = tf.Print(selected_activations, [selected_activations], "SELECTED_ACTIVATIONS: ", summarize=90)
+            node_weights = tf.Print(node_weights, [node_weights], "NODE WEIGHTS IN CHAOS ITERATION BODY: ", summarize=90)
 
             node_dot_prod = tf.matmul(node_weights, selected_activations)
             #print("node_mat_mult", node_dot_prod)
@@ -600,11 +595,13 @@ class ChaosNetwork():
             lambda idx, a, b: tf.less(idx, self.number_of_nodes),  
             chaos_iteration_body,
             (0, chaos_activations, 0),
+            back_prop=True,
             parallel_iterations=1
         )
 
         new_activations = tf.reshape(final_chaos_activations.stack(), (-1, 50))
-        
+        new_activations = tf.Print(new_activations, [new_activations], "NEW ACTIVATIONS: ")
+
         #new_activations.set_shape([None, self.number_of_nodes])
 
         #new_activations.set_shape([50,50])
