@@ -232,10 +232,27 @@ class ChaosNetwork():
         return fc_layer(input_= activation_input,
                         input_size = self.number_of_nodes, 
                         output_size=self.number_of_nodes, 
+                        activation=tf.nn.relu, 
+                        bias=True, 
+                        scope="chaos-controller")
+    '''
+    def build_rnn_controller(self, activation_input, scope=None):
+            #with tf.variable_scope("chaos"):
+        
+        forward_cell = tf.rnn.LSTMCell(30, forget_bias=1.0)
+        backward_cell = tf.rnn.LSTMCell(30, forget_bias=1.0)
+
+        rnn_output, fw_state, bw_state = rnn.stack_bidirectional_dynamic_rnn([forward_cell], 
+        [backward_cell], activation_input, dtype=tf.float64 )
+
+        return fc_layer(input_= rnn_output,
+                        input_size = self.number_of_nodes, 
+                        output_size=self.number_of_nodes, 
                         activation=tf.tanh, 
                         bias=False, 
                         scope="chaos-controller")
-
+    '''
+    
     # Controller Scores each node, takes its previous activation 
     def score_nodes(self, activation_input): 
 
@@ -318,7 +335,7 @@ class ChaosNetwork():
             _pass_through = fc_layer(input_=activation_on_final_index, 
                                     input_size=self.number_of_nodes, 
                                     output_size=self.output_size, 
-                                    activation=tf.tanh, 
+                                    activation=tf.nn.relu, 
                                     bias=False, 
                                     scope="output")
             return _pass_through
@@ -657,16 +674,16 @@ class ChaosNetwork():
             print("node scores,", node_scores) # node scores, Tensor("while/Identity_2:0", shape=(?, 50), dtype=float32)
                   
             selected_activations = tf.reshape(self.selected_field_activations(candidate_field_for_node_with_weight_matching, node_scores, prev_activations, node_degree, "SOFT"), [node_degree, -1])
-            selected_activations = tf.Print(selected_activations, [selected_activations], "SELECTED_ACTIVATIONS: ", summarize=90)
-            node_weights = tf.Print(node_weights, [node_weights], "NODE WEIGHTS IN CHAOS ITERATION BODY: ", summarize=90)
+            # selected_activations = tf.Print(selected_activations, [selected_activations], "SELECTED_ACTIVATIONS: ", summarize=90)
+            # node_weights = tf.Print(node_weights, [node_weights], "NODE WEIGHTS IN CHAOS ITERATION BODY: ", summarize=90)
 
             node_dot_prod = tf.matmul(node_weights, selected_activations)
             #print("node_mat_mult", node_dot_prod)
 
             #node_evaluation = tf.reduce_sum(node_mat_mult)
             # node_dot_prod = tf.Print(node_dot_prod, [node_dot_prod], "NODE_DOT_PROD: ", summarize=90)
-            node_activation = tf.reshape( tf.tanh(node_dot_prod), [-1])
-            node_activation = tf.Print(node_activation, [node_activation], "NODE_ACTIVATION: ", summarize=90)
+            node_activation = tf.reshape( tf.nn.relu(node_dot_prod), [-1])
+            # node_activation = tf.Print(node_activation, [node_activation], "NODE_ACTIVATION: ", summarize=90)
 
             
             # node.add_activation(node_activation)
@@ -686,7 +703,7 @@ class ChaosNetwork():
         )
 
         new_activations = tf.reshape(final_chaos_activations.stack(), (-1, self.number_of_nodes))
-        new_activations = tf.Print(new_activations, [new_activations], "NEW ACTIVATIONS: ")
+        # new_activations = tf.Print(new_activations, [new_activations], "NEW ACTIVATIONS: ")
 
         #new_activations.set_shape([None, self.number_of_nodes])
 
@@ -710,8 +727,8 @@ class ChaosNetwork():
 
             loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, 
                                                                              labels=batch_y))
-            # optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
-            optimizer = tf.train.GradientDescentOptimizer(learning_rate = learning_rate)
+            optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+            #optimizer = tf.train.GradientDescentOptimizer(learning_rate = learning_rate)
             compute_grads = optimizer.compute_gradients(loss_op)
             train_op = optimizer.apply_gradients(grads_and_vars=compute_grads)#optimizer.minimize(loss_op)
             self._train = train_op, loss_op, compute_grads

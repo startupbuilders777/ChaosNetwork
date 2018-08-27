@@ -126,7 +126,7 @@ def chaosGraphBaseline():
     # Parameters
     learning_rate = 0.1
     training_epochs = 2000
-    batch_size = 5
+    batch_size = 100
     display_step = 1
     logs_path = '/tmp/tensorflow_logs/example'
     
@@ -139,10 +139,10 @@ def chaosGraphBaseline():
     # 0-9 digits recognition => 10 classes
     y = tf.placeholder(tf.float32, [None, 10], name='LabelData')
 
-    chaos_net = ChaosNetwork(number_of_nodes=12, 
+    chaos_net = ChaosNetwork(number_of_nodes=30, # 30 nodes, 3 degree, 6 nodes in candidate field.  
                            input_size=n_input, 
                            output_size=n_classes, 
-                           chaos_number=1,
+                           chaos_number=3,
                            batch_size=batch_size)
     
     train, train_loss, compute_grads = chaos_net.train(x, y)
@@ -170,8 +170,6 @@ def chaosGraphBaseline():
         # op to write logs to Tensorboard
         writer = tf.summary.FileWriter("./chaos_net_logs/" + str(datetime.datetime.now()) + "/",
                                             graph=tf.get_default_graph())
-
-
 
         # Training cycle
         for epoch in range(training_epochs):
