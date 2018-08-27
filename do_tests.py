@@ -124,9 +124,9 @@ def baseline():
 
 def chaosGraphBaseline():
     # Parameters
-    learning_rate = 0.01
+    learning_rate = 0.1
     training_epochs = 2000
-    batch_size = 100
+    batch_size = 5
     display_step = 1
     logs_path = '/tmp/tensorflow_logs/example'
     
@@ -139,10 +139,10 @@ def chaosGraphBaseline():
     # 0-9 digits recognition => 10 classes
     y = tf.placeholder(tf.float32, [None, 10], name='LabelData')
 
-    chaos_net = ChaosNetwork(number_of_nodes=20, 
+    chaos_net = ChaosNetwork(number_of_nodes=12, 
                            input_size=n_input, 
                            output_size=n_classes, 
-                           chaos_number=2,
+                           chaos_number=1,
                            batch_size=batch_size)
     
     train, train_loss, compute_grads = chaos_net.train(x, y)

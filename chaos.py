@@ -190,8 +190,9 @@ class ChaosNetwork():
     def create_random_chaos_graph(self):
         number_of_nodes = self.number_of_nodes;
         degree = 3;
-        candidate_field_size = 3;
-
+        candidate_field_size = 6;
+        self.node_degree = 3;
+        
         # index position in array is the node name.
         for i in range(number_of_nodes): 
             self.nodes.append(Node(name=("node" + str(i)), 
@@ -332,7 +333,7 @@ class ChaosNetwork():
     
 
     
-    def selected_field_activations_batch(self, candidate_field_for_node_with_weight_matching, node_scores, prev_activations, node_degree):
+    def hard_selected_field_activations_batch(self, candidate_field_for_node_with_weight_matching, node_scores, prev_activations, node_degree):
         # this is the selected field nodes. it is a tensor that indicates each node that was selected in this
         # chaos iteration from the candidate field by a node.
         # its a list of tuples [x,y], where x is the node id (which is used to retrieve the node from the chaos graph), 
@@ -531,12 +532,88 @@ class ChaosNetwork():
 
     
 
-    def selected_field_activations(self, candidate_field_for_node_with_weight_matching, node_scores, prev_activations, node_degree, batch_type="BATCH"):
+
+
+
+    # soft version of the hard version above => soft chaos net. does a dot product with chaos score.
+    # todo: OK MAKE YOUR OWN DYNAMIC PARTITION WITH A TENSOR ARRAY BECAUSE TENSORFLOW'S DYNAMIC PARTIITON IS GARBAGE. IT requires a static int value for num_partitions 
+    # which means each node has to have same degree. Not a requirement, so build your own that is better for testing cooler graphs
+    # todo: TO FIX ABOVE PROBLEM, PARTITION THEM BEFORE HAND IN THE GRAPH CREATION, SO YOU CAN JUST IMPORT THE PARTITIONED NDOES INTO THE CHAOS_ITERATION FUNCTION
+    #       SO DO THE PARITITIONING BEFOREHANDDDDDDD, BEFORE CREATING THE TF COMPUTATION GRAPH    
+    def soft_selected_field_activations_batch(self, candidate_field_for_node_with_weight_matching, node_scores, prev_activations, node_degree = 3):
+        candidate_field_for_node = candidate_field_for_node_with_weight_matching[:, 0]
+        weight_matching_partitions = tf.cast(candidate_field_for_node_with_weight_matching[:, 1], dtype=tf.int32)
+        
+        
+        candidate_field_for_node = tf.Print( candidate_field_for_node, [ candidate_field_for_node], "CANDIDATE FIELD FOR NODE: ", summarize=90)
+        weight_matching_partitions = tf.Print(weight_matching_partitions, [weight_matching_partitions], "weight_matching_partitions: ", summarize=90)
+
+
+
+        # ok just do a dot product over all the candidate field activations with the node score. 
+        # they will dot product with other nodes allocated for the index. 
+        # so for candidate fields in for weight match 0 -> say that is node 1 and 4 (dot product this with their node score)
+        # # so for candidate fields in for weight match 1 -> node 2 and 5 (dot prod this with their node score)
+        # # so for candidate fields in for weight match 2 ->  node 3 and 6
+        # this imposes restriction that candidate field has to be divisible by degree
+        # ok so node score will give weighted average => 
+
+        # how many times can node degree fit into candidate field size.
+        # assume candidate field size is 6
+  
+        # do a tf.dynamic_partition (to put it together, you have to use dynamic_stitch) 
+
+        # number of partiitons is degree
+        all_weight_matched_nodes = tf.dynamic_partition(candidate_field_for_node, weight_matching_partitions, num_partitions=self.node_degree)
+        print("all weight_matched nodes", all_weight_matched_nodes)
+        all_weight_matched_nodes = tf.Print(all_weight_matched_nodes, [all_weight_matched_nodes], "ALL WEIGHT MATCHED NODES: ", summarize=90)
+
+
+        # do a map on each element. 
+
+        def soft_compute_selection(weight_matched_nodes):
+            
+            # say for weight 0, we identified, node a, b, and c to be soft dotted for it. 
+            # prev activations => (?)
+            # node scores, Tensor("while/Identity_2:0", shape=(?, number_of_nodes), dtype=float32)
+            weight_matched_prev_activations = tf.gather(prev_activations, weight_matched_nodes, axis=1)
+            weight_matched_scores = tf.gather(node_scores, weight_matched_nodes, axis=1)
+
+            # OK SO THINK OF IT LIEK THIS => we have (batch_size, degree) shape activations and scores
+            #  do multiply and reduce sum on axis=1 so we keep batch size.
+            weight_matched_prev_activations = tf.Print(weight_matched_prev_activations, [weight_matched_prev_activations], "weight_matched_prev_activations", summarize=90)
+            weight_matched_scores = tf.Print(weight_matched_scores, [weight_matched_scores], "weight_matched_scores", summarize=90)
+
+
+            weight_matched_activation = tf.reduce_sum(tf.multiply(weight_matched_prev_activations, weight_matched_scores), axis=1)
+            weight_matched_activation = tf.Print(weight_matched_activation, [weight_matched_activation], "weigh_matched_activation: ", summarize=90)
+            return weight_matched_activation
+
+        computed_selection_activations = tf.map_fn(lambda elem: soft_compute_selection(elem), 
+                                                   all_weight_matched_nodes, 
+                                                   dtype=tf.float32,
+                                                   back_prop=True, 
+                                                   parallel_iterations=1)
+
+        # computed_selection_activations = computed_selection_activations.stack() # stack it.
+        print("computed_selection_activations: ", computed_selection_activations)
+        
+        computed_selection_activations = tf.Print(computed_selection_activations, [computed_selection_activations], "computed_selection_activations: ", summarize=90)
+        
+        return computed_selection_activations
+
+
+
+    def selected_field_activations(self, candidate_field_for_node_with_weight_matching, node_scores, prev_activations, node_degree, batch_type="SOFT"):
             #if(batch_type == "NO_BATCH"):
             #    return self.selected_field_activations_no_batch(selected_field_nodes, prev_activations, node_degree)
             #else if(batch_type == "BATCH"):
-            return self.selected_field_activations_batch(candidate_field_for_node_with_weight_matching, node_scores, prev_activations, node_degree)
-
+            if(batch_type == "HARD"):
+                return self.hard_selected_field_activations_batch(candidate_field_for_node_with_weight_matching, node_scores, prev_activations, node_degree)
+            elif(batch_type == "SOFT"): 
+                return self.soft_selected_field_activations_batch(candidate_field_for_node_with_weight_matching, node_scores, prev_activations, node_degree)
+            else:
+                raise "NO BAD CHOICE"
     
 
     def chaos_iteration(self, node_scores, prev_activations):
@@ -579,9 +656,9 @@ class ChaosNetwork():
             
             print("node scores,", node_scores) # node scores, Tensor("while/Identity_2:0", shape=(?, 50), dtype=float32)
                   
-            selected_activations = tf.reshape(self.selected_field_activations(candidate_field_for_node_with_weight_matching, node_scores, prev_activations, node_degree, "BATCH"), [node_degree, -1])
-            # selected_activations = tf.Print(selected_activations, [selected_activations], "SELECTED_ACTIVATIONS: ", summarize=90)
-            # node_weights = tf.Print(node_weights, [node_weights], "NODE WEIGHTS IN CHAOS ITERATION BODY: ", summarize=90)
+            selected_activations = tf.reshape(self.selected_field_activations(candidate_field_for_node_with_weight_matching, node_scores, prev_activations, node_degree, "SOFT"), [node_degree, -1])
+            selected_activations = tf.Print(selected_activations, [selected_activations], "SELECTED_ACTIVATIONS: ", summarize=90)
+            node_weights = tf.Print(node_weights, [node_weights], "NODE WEIGHTS IN CHAOS ITERATION BODY: ", summarize=90)
 
             node_dot_prod = tf.matmul(node_weights, selected_activations)
             #print("node_mat_mult", node_dot_prod)
