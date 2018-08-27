@@ -380,7 +380,7 @@ def tie_breaking_algo_with_batches_test():
     # and finally do the matrix multiple with the weights [0.5, 0.7, 0.6]
 
     #JUST MAP OVER THE BATHC!!!
-
+    
     def get_activation_from_selected_nodes(selected_field_nodes, batch_idx):
         # reading from this
         input_selected_field_nodes_ta = tf.TensorArray(size=node_degree, dtype=tf.float32, dynamic_size=False)
