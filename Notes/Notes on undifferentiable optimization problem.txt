@@ -1,0 +1,35 @@
+
+I don't believe, indeed, that you can use top_k as an objective function.
+Just like you can't use the accuracy as an objective function.
+
+The reason is mathematical. Even if keras, tensorflow, theano and co. are awesome tools
+for AI and allows everybody to fiddle with neural nets, the latters still remain very complex 
+mathematical tools. Those maths are well hidden under the hood but you should be aware 
+of them when trying to go further than prefabricated tools.
+
+What happens when you train a network is that you compute how wrong the network is on an example 
+and you backpropagate that error to learn from it. The algorithms behind that backpropagation 
+are optimizers, more precisely they are gradient based optimizers. Computing a gradient 
+requires to differentiate the function that we are optimizing, the loss/objective function. 
+It means that the objective must be differentiable. The accuracy isn't a differentiable function, 
+it takes as an input a real number between 0 and 1 and outputs a step-like function : 0 if x<0.5 and 1 if x>0.5. 
+That function isnt differentiable because we can't get its gradient in 0.5. The top_k function is some kind of accuracy 
+function. So indeed in my opinion you cannot use it in an objective, because under the hood, the smart tensorflow has 
+to compute the gradients of your function.
+
+I hope this helps :)
+
+shareimprove this answer
+answered Feb 28 '17 at 16:01
+
+Nassim Ben
+6,41311132
+
+Thanks again for you help / input Nassim, what you say makes perfectly sense and was also what 
+I expected. Nevertheless I have seen people playing with neural networks that sort stuff and I 
+was wondering if there was a smart approach to this kind of problems. For example a "weak" 
+alternative for checking would be to use MSE or Categorical Crossentropy, but I would lose 
+quite a few information about the ordering of the data. – luke14free Feb 28 '17 at 16:07
+
+Can you provide more information on what you're trying to achieve ? A small example of inputs, 
+targets and why you want to do it would be perfect ! – Nassim Ben Feb 28 '17 at 16:21
