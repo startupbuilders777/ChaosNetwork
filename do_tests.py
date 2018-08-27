@@ -35,9 +35,9 @@ def multilayer_perceptron(x, weights, biases):
 
 def baseline():
     # Parameters
-    learning_rate = 0.01
+    learning_rate = 0.1
     training_epochs = 2000
-    batch_size = 100
+    batch_size = 10
     display_step = 1
     logs_path = "./fc_net_baseline_logs/" + str(datetime.datetime.now()) + "/"
     
@@ -122,14 +122,40 @@ def baseline():
             "--> tensorboard --logdir=/tmp/tensorflow_logs " \
             "\nThen open http://0.0.0.0:6006/ into your web browser")
 
-def chaosGraphBaseline():
+def chaosGraphBaseline(test_name=str(datetime.datetime.now()), checkpoint_iter=0, save_output_to_file = True):
     # Parameters
     learning_rate = 0.1
     training_epochs = 2000
-    batch_size = 100
-    display_step = 1
-    logs_path = '/tmp/tensorflow_logs/example'
+    batch_size = 10
     
+    print("LEARNING RATE IS: " + str(learning_rate))
+    print("TRAINING_EPOCHS IS: " + str(training_epochs))
+    print("BATCH_size is: " + str(batch_size))
+
+    chaos_test_path = "chaos_tests" + "/" + test_name 
+    
+    
+    if save_output_to_file: 
+        import sys
+        import os    
+        
+        output_file = chaos_test_path + "/stdout.txt"
+        
+        if not os.path.exists(os.path.dirname(output_file)):
+            try:
+                os.makedirs(os.path.dirname(output_file))
+            except OSError as exc: # Guard against race condition
+                if exc.errno != errno.EEXIST:
+                    raise
+        
+       
+        sys.stdout = open(output_file, 'w+') # redirects output to this file
+
+        save_every = 100
+
+        logs_path = chaos_test_path + '/logs'
+        checkpoint_path = chaos_test_path + "/chaos_checkpoints";
+
     # TODO: DECOUPLE INPUT AND OUTPUT PROJECTION LAYER INSIDE CHAOS NETWORK FROM 
     # THE CHAOS NETWORK ITSELF.
     # PPL USING API SHOULD BE BUILDING WHATEVER NETS THEY WANT AND ADD
@@ -162,64 +188,67 @@ def chaosGraphBaseline():
 
 
     saver = tf.train.Saver(max_to_keep=0)
-    
+    sess = tf.Session()
+
     init = tf.global_variables_initializer()
 
-    with tf.Session() as sess:
-        sess.run(init)
-        # op to write logs to Tensorboard
-        writer = tf.summary.FileWriter("./chaos_net_logs/" + str(datetime.datetime.now()) + "/",
-                                            graph=tf.get_default_graph())
+    if(checkpoint_iter > 0): 
+        saver.restore(sess, checkpoint_path + "/checkpoint-" + str(checkpoint_iter))
+        
 
-        # Training cycle
-        for epoch in range(training_epochs):
-            avg_cost = 0.
-            total_batch = int(mnist.train.num_examples / batch_size)
-            # Loop over all batches
-            for i in range(total_batch):
-                data_x, data_y = mnist.train.next_batch(batch_size)
-                print(i)
+    
+    sess.run(init)
+    # op to write logs to Tensorboard
+    writer = tf.summary.FileWriter(logs_path,
+                                        graph=tf.get_default_graph())
+    
+    saver = tf.train.Saver(max_to_keep=0)
+    # Training cycle
 
+    i = 0 # counter
 
-                #print("batch_xs", np.array(data_xs).shape )
-
-                # Run optimization op (backprop), cost op (to get loss value)
-                # and summary nodes
-                sess.run(train, feed_dict={x: data_x, y: data_y})
+    for epoch in range(training_epochs):
+    
+        total_batch = int(mnist.train.num_examples / batch_size)
+        # Loop over all batches
+        for j in range(total_batch):
+            data_x, data_y = mnist.train.next_batch(batch_size)
+            print(i)
+            sess.run(train, feed_dict={x: data_x, y: data_y})
+            
+            if(i % 2 == 0 and i > 0):
+                # TEST IT
+                test_x, test_y = mnist.train.next_batch(batch_size)
+                writer.add_summary(
+                    sess.run(test_summary_op,
+                         feed_dict={x: test_x, y: test_y},
+                        
+                        ),
+                i)
+                writer.add_summary(
+                    sess.run(train_summary_op,
+                         feed_dict={x: data_x, y: data_y},
+                        
+                        ),
+                i)
+            
+            if(i % save_every == 0 and i > 0):
+                save_path = saver.save(sess,  checkpoint_path + "/checkpoint", global_step=i)
+        
+            i += 1 
                 
-                if(i % 2 == 0):
-                    # TEST IT
-                    test_x, test_y = mnist.train.next_batch(batch_size)
+                # print(np.argmax(test_y, 2)[0])
+                # print(np.argmax(test_mask * sess.run(inference, feed_dict={batch_x: test_x, keep_prob: 1.0}), 2)[0])
+            
+            # Write logs at every iteration
+            #summary_writer.add_summary(summary, epoch * total_batch + i)
+            # Compute average loss
+            #avg_cost += c / total_batch
+        # Display logs per epoch step
+        #if (epoch + 1) % display_step == 0:
+        #    print("Epoch:", '%04d' % (epoch + 1), "cost=", "{:.9f}".format(avg_cost))
 
-                    writer.add_summary(
-                        sess.run(test_summary_op,
-                             feed_dict={x: test_x, y: test_y},
-                            
-                            ),
-
-                    i)
-
-                    writer.add_summary(
-                        sess.run(train_summary_op,
-                             feed_dict={x: data_x, y: data_y},
-                            
-                            ),
-
-                    i)
-                    
-                    
-                    # print(np.argmax(test_y, 2)[0])
-                    # print(np.argmax(test_mask * sess.run(inference, feed_dict={batch_x: test_x, keep_prob: 1.0}), 2)[0])
-                
-                # Write logs at every iteration
-                #summary_writer.add_summary(summary, epoch * total_batch + i)
-                # Compute average loss
-                #avg_cost += c / total_batch
-            # Display logs per epoch step
-            #if (epoch + 1) % display_step == 0:
-            #    print("Epoch:", '%04d' % (epoch + 1), "cost=", "{:.9f}".format(avg_cost))
 
 chaosGraphBaseline()
-
 # baseline()
 

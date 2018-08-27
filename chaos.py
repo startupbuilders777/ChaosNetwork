@@ -227,6 +227,9 @@ class ChaosNetwork():
 
             self.nodes[i].set_candidate_field(nodes_to_be_in_candidate_field)
 
+
+
+        
     def build_controller(self, activation_input, scope=None):
         #with tf.variable_scope("chaos"):
         return fc_layer(input_= activation_input,
@@ -610,7 +613,7 @@ class ChaosNetwork():
                                                    all_weight_matched_nodes, 
                                                    dtype=tf.float32,
                                                    back_prop=True, 
-                                                   parallel_iterations=1)
+                                                   parallel_iterations=100)
 
         # computed_selection_activations = computed_selection_activations.stack() # stack it.
         print("computed_selection_activations: ", computed_selection_activations)
@@ -699,7 +702,7 @@ class ChaosNetwork():
             chaos_iteration_body,
             (0, chaos_activations, 0),
             back_prop=True,
-            parallel_iterations=1
+            parallel_iterations=100
         )
 
         new_activations = tf.reshape(final_chaos_activations.stack(), (-1, self.number_of_nodes))
