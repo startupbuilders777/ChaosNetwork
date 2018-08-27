@@ -22,7 +22,8 @@ def fc_layer(input_, input_size, output_size, activation=None, bias=True, scope=
 
         except ValueError:
             sc.reuse_variables()
-            w = tf.get_variable(name="weight", shape=[input_size, output_size], dtype=dtype)
+            w = tf.get_variable(name="weight", shape=[input_size, output_size],  
+                                initializer=tf.contrib.layers.xavier_initializer(seed=2), dtype=dtype)
         output_ = tf.matmul(input_, w)
         if bias:
             b = tf.get_variable(name="bias", shape=[output_size], initializer=tf.constant_initializer(0.001), dtype=dtype)
