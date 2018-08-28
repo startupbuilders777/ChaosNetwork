@@ -1,0 +1,4 @@
+inputs Tensor("InputData_1:0", shape=(?, 784), dtype=float32)
+activation zero,  Tensor("input_projection/Relu:0", shape=(?, 12), dtype=float32)
+prev_activations,  Tensor("Print:0", shape=(?, 12), dtype=float32)
+prev_activations_shape,  (?, 12)

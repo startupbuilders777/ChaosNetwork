@@ -126,7 +126,7 @@ def chaosGraphBaseline(test_name=str(datetime.datetime.now()), checkpoint_iter=0
     # Parameters
     learning_rate = 0.1
     training_epochs = 2000
-    batch_size = 10
+    batch_size = 5
     
     print("LEARNING RATE IS: " + str(learning_rate))
     print("TRAINING_EPOCHS IS: " + str(training_epochs))
@@ -165,7 +165,7 @@ def chaosGraphBaseline(test_name=str(datetime.datetime.now()), checkpoint_iter=0
     # 0-9 digits recognition => 10 classes
     y = tf.placeholder(tf.float32, [None, 10], name='LabelData')
 
-    chaos_net = ChaosNetwork(number_of_nodes=30, # 30 nodes, 3 degree, 6 nodes in candidate field.  
+    chaos_net = ChaosNetwork(number_of_nodes=12, # 30 nodes, 3 degree, 6 nodes in candidate field.  
                            input_size=n_input, 
                            output_size=n_classes, 
                            chaos_number=3,
