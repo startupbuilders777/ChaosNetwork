@@ -2,6 +2,12 @@ import tensorflow as tf
 import numpy as np
 from util import fc_layer
 
+
+# SHARE TF VARIABLES DECORATOR:
+
+share_variables = lambda func: tf.make_template(
+    func.__name__, func, create_scope_now_=True)
+
 class Node():
     def __init__(self, degree, chaos_number, candidate_degree, name, chaos_weight_scope, dtype=tf.float32):
         
@@ -229,7 +235,7 @@ class ChaosNetwork():
 
 
 
-        
+      
     def build_controller(self, activation_input, scope=None):
         #with tf.variable_scope("chaos"):
         return fc_layer(input_= activation_input,
@@ -238,35 +244,91 @@ class ChaosNetwork():
                         activation=tf.nn.relu, 
                         bias=True, 
                         scope="chaos-controller")
-    '''
-    def build_rnn_controller(self, activation_input, scope=None):
+    
+    
+    def build_rnn_controller(self, activation_input, relevant_index, scope=None, ):
             #with tf.variable_scope("chaos"):
+
+
+        # activation input has timestep as chaos_number
+        # 
+
+        forward_cells = []
+        backward_cells = []
+        rnn_layers = 1
+        cell_size = 10
+
+        activation_input = tf.Print(activation_input, [activation_input], "activation_input: ", summarize=90)
+
+        for i in range(rnn_layers):
+            forward_cell = tf.rnn.LSTMCell(10, forget_bias=1.0)
+            backward_cell = tf.rnn.LSTMCell(10, forget_bias=1.0)
+            forward_cells.append(forward_cell)
+            backward_cells.append(backward_cell)
+
+        '''
         
-        forward_cell = tf.rnn.LSTMCell(30, forget_bias=1.0)
-        backward_cell = tf.rnn.LSTMCell(30, forget_bias=1.0)
+        outputs: The RNN output Tensor.
+        If time_major == False (default), this will be a Tensor shaped: [batch_size, max_time, cell.output_size].
 
-        rnn_output, fw_state, bw_state = rnn.stack_bidirectional_dynamic_rnn([forward_cell], 
-        [backward_cell], activation_input, dtype=tf.float64 )
+        Note, if cell.output_size is a (possibly nested) tuple of integers or TensorShape objects, 
+        then outputs will be a tuple having the same structure as cell.output_size, containing 
+        Tensors having shapes corresponding to the shape data in cell.output_size.
 
-        return fc_layer(input_= rnn_output,
-                        input_size = self.number_of_nodes, 
-                        output_size=self.number_of_nodes, 
-                        activation=tf.tanh, 
-                        bias=False, 
-                        scope="chaos-controller")
-    '''
+        '''
+        
+        
+        rnn_output, fw_state, bw_state = rnn.stack_bidirectional_dynamic_rnn(                                        
+                                                cells_fw=forward_cells, 
+                                                cells_bw=backward_cells, 
+                                                inputs=activation_input,                   
+                                                time_major=True, 
+                                                dtype=tf.float64)
+
+        rnn_output = tf.Print(rnn_output, [rnn_output], "RNN_OUTPUT", summarize=500)
+
+        relevant_output = rnn_output[relevant_index]
+
+        relevant_output = tf.Print(relevant_output, [relevant_output], "relevant_output: ", summarize=500)
+
+        return tf.layers.dense(relevant_output, self.number_of_nodes, use_bias=False)
+
+        #
+        #return fc_layer(input_= rnn_output,
+        #                input_size = self.number_of_nodes, 
+        #                output_size=self.number_of_nodes, 
+        #                activation=tf.tanh, 
+        #                bias=False, 
+        #                scope="chaos-controller")
+    
     
     # Controller Scores each node, takes its previous activation 
-    def score_nodes(self, activation_input): 
+    
+    def score_nodes(self, activation_input, type="fc", idx=0): 
 
-        if self._controller is None:
+        if self._controller is None and type == "fc":
             # can be anytime of graph 
             self._controller = self.build_controller(activation_input)
+            return self._controller
+        elif self._controller is None and type == "rnn":
+            self._controller = self.build_rnn_controller(activation_input, idx)
             return self._controller
         else:
             with tf.variable_scope("chaos", reuse=True):
                 return self._controller
-        
+
+    # RNN CONTROLLER NOTES => 
+    # INPUT => [BATCH_SIZE, TIME_STEPS, FEATURES]
+
+
+    # OK SO FOR RNN CONTROLLER => INPUT HAS TO BE CREATED LIKE THIS (assume chaos number = 3)
+    # FOR CHAOS ITERATION 0 => INPUT WILL BE [activation0, zero_tensor, zero_tensor]    
+    # FOR CHAOS ITERATION 1 => [activation0, activation1, zero_tensor] (sort of like apddig)
+    # FOR CHAOS ITERATION 2 => [activation0, activation1, activation2]
+
+    # ALSO SELECT THE LAST RELEVANT OUTPUT. SO FOR CHAOS ITERATION 0, LAST RELEVANT OUTPUT IS 
+
+    
     def pass_through(self, inputs):
         if self._pass_through is None:  
             #just a projection layer, therefore, no bias
@@ -304,20 +366,46 @@ class ChaosNetwork():
             prev_activations = list_of_activation_zero_tensors
             print("prev_activations, ", prev_activations)
             print("prev_activations_shape, ", prev_activations.get_shape())
+
+
+
             def pass_iteration(idx, cumulative_chaos, scores_for_nodes, prev_activations):
                 # this probably has to be tf.while
+                
+                cumulative_chaos = cumulative_chaos.write(idx, prev_activations)
                 current_activations = self.chaos_iteration(scores_for_nodes, prev_activations) # current activations should be a tensor array of activations
                 
                 current_activations = tf.Print(current_activations, [current_activations], "CURRENT_ACTIVATIONS IN CHAOS_ITERATION BODY", summarize=90)
 
 
                 print("current_activations, ", current_activations)
-                next_score_for_nodes = self.score_nodes(current_activations)
+
+                # input has to be padded to chaos number, which is number of timesteps for rnn
+                # ok so rn its (timestep, batch_size, features) 
+                controller_chaos_input = cumulative_chaos.stack()
+                controller_chaos_input = tf.Print(controller_chaos_input, [controller_chaos_input], "controller_chaos_input: ", summarize=90)
+                pad_timestep = tf.zeros_like(prev_activations)
+
+                def timestep_pad(index):
+                    return tf.cond(tf.less_equal(index, idx), lambda: controller_chaos_input[index], lambda: pad_timestep)
+
+                pad_ids = tf.range(tf.convert_to_tensor(self.chaos_number))
+                timestep_padded_controller_chaos = tf.map_fn(lambda id: timestep_pad(id), pad_ids, dtype=tf.float32,
+                                                   back_prop=True, 
+                                                   parallel_iterations=100)
+
+
+                # timestep_padded_controller_chaos = timestep_padded_controller_chaos.stack()
+                timestep_padded_controller_chaos = tf.Print(timestep_padded_controller_chaos, [timestep_padded_controller_chaos], 
+                                                                            "timestep_padded_controller_chaos: ", summarize=90)
+
+
+                next_score_for_nodes = self.score_nodes(timestep_padded_controller_chaos, type="rnn", idx=idx)
 
                 next_score_for_nodes = tf.Print(next_score_for_nodes, [next_score_for_nodes], "NEXT_SCORES_FOR_NODES: ", summarize=90)
 
 
-                cumulative_chaos = cumulative_chaos.write(idx, current_activations)
+
                 #current_activations.set_shape((None, self.number_of_nodes))
                 return (idx+1, cumulative_chaos, next_score_for_nodes, current_activations)
             
@@ -560,6 +648,7 @@ class ChaosNetwork():
     # which means each node has to have same degree. Not a requirement, so build your own that is better for testing cooler graphs
     # todo: TO FIX ABOVE PROBLEM, PARTITION THEM BEFORE HAND IN THE GRAPH CREATION, SO YOU CAN JUST IMPORT THE PARTITIONED NDOES INTO THE CHAOS_ITERATION FUNCTION
     #       SO DO THE PARITITIONING BEFOREHANDDDDDDD, BEFORE CREATING THE TF COMPUTATION GRAPH    
+    
     def soft_selected_field_activations_batch(self, candidate_field_for_node_with_weight_matching, node_scores, prev_activations, node_degree = 3):
         candidate_field_for_node = candidate_field_for_node_with_weight_matching[:, 0]
         weight_matching_partitions = tf.cast(candidate_field_for_node_with_weight_matching[:, 1], dtype=tf.int32)
@@ -623,7 +712,7 @@ class ChaosNetwork():
         return computed_selection_activations
 
 
-
+    
     def selected_field_activations(self, candidate_field_for_node_with_weight_matching, node_scores, prev_activations, node_degree, batch_type="SOFT"):
             #if(batch_type == "NO_BATCH"):
             #    return self.selected_field_activations_no_batch(selected_field_nodes, prev_activations, node_degree)
@@ -635,7 +724,7 @@ class ChaosNetwork():
             else:
                 raise "NO BAD CHOICE"
     
-
+    
     def chaos_iteration(self, node_scores, prev_activations):
         
         # Build a tensor reflecting chaos graph relationships that can be used in the tf computation graph
@@ -652,7 +741,6 @@ class ChaosNetwork():
 
         chaos_activations = tf.TensorArray(dtype=tf.float32, size=self.number_of_nodes)
         print("chaos_activations_tensor_array", chaos_activations)
-
 
         def chaos_iteration_body(i, activations, weight_index_begin):
 
@@ -715,7 +803,7 @@ class ChaosNetwork():
         return new_activations
 
 
-
+    
     def infer(self, inputs):
         if self._infer is None:
             output = self.pass_through(inputs)
@@ -723,7 +811,8 @@ class ChaosNetwork():
             self._infer = output
         
         return self._infer
-           
+    
+      
     def train(self, batch_x, batch_y, learning_rate = 0.01):
         if self._train is None:
             logits = self.pass_through(batch_x)
@@ -737,6 +826,7 @@ class ChaosNetwork():
             self._train = train_op, loss_op, compute_grads
         
         return self._train
+
     
     def test(self, batch_x, batch_y):
         if self._test is None: 
