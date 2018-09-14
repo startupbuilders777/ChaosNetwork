@@ -341,12 +341,12 @@ class ChaosNetwork():
             
             print("inputs", inputs)
             #print("inputs shape", inputs.shape())
-            activation_zero = fc_layer(input_=inputs,
-                                    input_size = self.input_size, 
-                                    output_size = self.number_of_nodes, 
-                                    activation=tf.nn.relu, 
-                                    bias=False,
-                                    scope="input_projection")
+            activation_zero = tf.layers.dense(inputs, self.number_of_nodes, use_bias=False)#fc_layer(input_=inputs,
+                              #      input_size = self.input_size, 
+                              #      output_size = self.number_of_nodes, 
+                              #      activation=tf.nn.relu, 
+                              #      bias=False,
+                              #      scope="input_projection")
             
             print("activation zero, ", activation_zero)
             activation_zero = tf.Print(activation_zero, [activation_zero], "Activation Zero: ", summarize=90)

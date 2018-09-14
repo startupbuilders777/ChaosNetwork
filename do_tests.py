@@ -2,7 +2,7 @@
 import tensorflow as tf
 import numpy as np
 import datetime
-from chaos import ChaosNetwork
+from chaos_version_1 import ChaosNetwork
 
 # Import MNIST data
 from tensorflow.examples.tutorials.mnist import input_data

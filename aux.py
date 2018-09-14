@@ -514,35 +514,6 @@ def tie_breaking_algo_with_batches_test():
 tie_breaking_algo_with_batches_test();
 
 
-# soft version of the hard version above => soft chaos net.
-def soft_selected_field_activations_batch(self, candidate_field_for_node_with_weight_matching, node_scores, prev_activations, node_degree = 3, chaos_quotient = 2):
-    candidate_field_for_node = candidate_field_for_node_with_weight_matching[:, 0]
-    weight_matching_partitions = candidate_field_for_node_with_weight_matching[:, 1]
-
-    node_scores_for_candidate_field = tf.gather(node_scores, candidate_field_for_node, axis=1)
-    
-    # ok just do a dot product over all the candidate field activations with the node score. 
-    # they will dot product with other nodes allocated for the index. 
-    # so for candidate fields in for weight match 0 -> say that is node 1 and 4 (dot product this with their node score)
-    # # so for candidate fields in for weight match 1 -> node 2 and 5 (dot prod this with their node score)
-    # # so for candidate fields in for weight match 2 ->  node 3 and 6
-    # this imposes restriction that candidate field has to be divisible by degree
-    # ok so node score will give weighted average => 
-
-    # how many times can node degree fit into candidate field size.
-    # assume candidate field size is 6
-    chaos_quotient =  3
-
-
-    # do a tf.dynamic_partition (to put it together, you have to use dynamic_stitch) 
-    
-    # number of partiitons is degree
-    weight_matched_nodes = tf.dynamic_partition(candidate_field_for_node, weight_matching_partitions, node_degree)
-    tf.Print(weight_matched_nodes, )
-    
-
-
-    candidate_field_for_node_with_weight_matching.p
 
 
 
