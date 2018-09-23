@@ -1,7 +1,7 @@
 # CHAOS NETWORKS design and implementation paper 
 ### Author: Harman Singh
 ## NOTE
-Link to official paper coming soon. Currently being reviewed and edited. Core ideas described below. 
+Link to official design paper coming soon. Core ideas described below. 
 
 ## INTRODUCTION 
 The chaos network is designed similar to the human brain. Relationships between neurons, and paths of neural activity formed
