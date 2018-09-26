@@ -186,4 +186,5 @@ This allows alot more generalization to be done in higher chaos iterations inste
 - Sort of like the human brain.
 
 ## Disadvantages of Chaos Network
-- Very Indeterministic and a lot of configuration required compared to other networks
+- Very Indeterministic
+- A lot of configuration required compared to other networks (Such as the input graph shape)
