@@ -10,7 +10,7 @@ during pattern recognition is the basis for the "chaos" network.
 The chaos network is a very malleable deep learning network since each neuron or node can speak to k other nodes
 a set number of times and complex graphs can be formed
 between these neurons for activity paths to travel.
-Certain types of graphs shapes and arrangements will be better than others for certain problems (graph shapes will be discussed in a later investigation).
+Certain types of graphs shapes and arrangements will be better than others for certain problems (the effect of graph shapes will be discussed in a later investigation).
 
 EACH NODE HAS A CERTAIN DEGREE, WHICH SPECIFIES THE NUMBER OF WEIGHTS IT HAS.
 Each node does the following computation => A = tanh(w1*x1 + w2*x2 + w3*x3 + ... + wk*xk), where k is the degree for the node.
@@ -32,9 +32,9 @@ the chaos graph is a bunch of nodes conneceted to other nodes (connected as in, 
 iterations are run on the chaos network
 
 Each node has a candidate field and an selected field.
-A candidate field is all the nodes that the node can talk to. (sort of like in the brain, a neuron has neurons surrounding it that it can spark)
-the selected field is the specific nodes chosen from the candidate field that will be spoken to in the current iteration.
-("spoken to" means "take activations from to be used in its dot product calculation")
+A candidate field is all the nodes that are the neighbours of that node. (sort of like in the brain, a neuron has neurons surrounding it that it can spark)
+the selected field is the specific nodes chosen from the candidate field that will be used in the current iteration.
+("used" meaning "take activations from to be used in its dot product calculation")
 
 HARD CONSTRAINTS for this network
 Each node computes a dot product, so each node outputs only 1 value each iteration.
@@ -55,16 +55,10 @@ Output size for the controller is the same as the number of nodes because each n
 
 After getting the score, the nodes will choose the top k scored nodes in their candidate fields to be in its active field for that iteration.
 
-The chaos network should form paths in terms of nodes chosen.
-
-
-
 ## Other cool thoughts:
 Since the iterations for each node are stored in the node activiation list, and there are X nodes, and K iterations, then we have data that is usable 
 by an LSTM to make predictions based on timestepped data where the number of timesteps is K, and each timestep has X features. 
 (Features can be organized based on the graph shape).
-
-
 
 
 ## ALGORIHTM OUTLINE:
